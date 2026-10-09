@@ -4,7 +4,7 @@ Ask business questions in plain English. A multi-agent system answers from a rea
 data warehouse, shows the SQL, fixes its own failed queries, catches silently wrong
 results, and never exposes PII. All data is generated sample data.
 
-> Status: **Phases 0-3 done** (setup, synthetic data, bronze, silver). The README grows with each chapter.
+> Status: **Phases 0-4 done** (setup, synthetic data, bronze, silver, gold). The README grows with each chapter.
 
 ## Prerequisites
 - Docker Desktop (running)
@@ -21,10 +21,11 @@ make check         # 5. verify env, database, roles and one tiny LLM call
 make data          # 6. generate the sample data into data/raw (about 3 seconds)
 make bronze        # 7. load the raw files into bronze tables (run it twice: second run loads nothing)
 make silver-full   # 8. clean bronze into silver (about 15 seconds); later `make silver` is incremental
+make gold-full     # 9. build the star schema (about 13 seconds); later `make gold` is incremental
 ```
 
 ## Make targets
-Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full lint test test-00 test-01 test-02 test-03 ci`.
+Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full lint test test-00 ... test-04 ci`.
 
 ## Troubleshooting
 - **`role "assistant_ro" does not exist`**: another Postgres is answering. This project
@@ -37,3 +38,5 @@ Run `make` to list them. So far: `venv env up down reset-db psql check data bron
 Everything is generated (seed 42), nothing is real. `make data` writes source-system style
 files to `data/raw/` and a ledger of the defects it injected to `data/raw/_defects.json`
 (see `notes/chapter_01.md`). A few rows of each file type are in `data/sample/`.
+
+The gold star schema is drawn in `docs/erd.md`.

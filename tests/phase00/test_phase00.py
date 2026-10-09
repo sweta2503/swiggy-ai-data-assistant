@@ -42,7 +42,6 @@ def test_llm_roundtrip():
 
 def test_model_tiers_fall_back_to_the_default_model(monkeypatch):
     from swiggy_ai import llm
-    from swiggy_ai.config import get_settings
 
     base = Settings(_env_file=None, openai_model="base", openai_model_low="cheap")
     monkeypatch.setattr(llm, "get_settings", lambda: base)
@@ -54,4 +53,3 @@ def test_model_tiers_fall_back_to_the_default_model(monkeypatch):
     monkeypatch.setattr(llm, "get_settings", lambda: empty)
     with pytest.raises(llm.LLMError, match="OPENAI_MODEL"):
         llm.resolve_model("low")
-    assert get_settings() is not None

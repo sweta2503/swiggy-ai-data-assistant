@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full lint test test-00 test-01 test-02 test-03 ci
+.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full lint test test-00 test-01 test-02 test-03 test-04 ci
 PY := .venv/bin/python
 export PYTHONPATH := src
 
@@ -47,6 +47,12 @@ silver:  ## Clean new bronze batches into silver (incremental)
 silver-full:  ## Rebuild silver from all of bronze
 	$(PY) -m swiggy_ai.pipeline.silver --full
 
+gold:  ## Load new silver data into the gold star schema (incremental)
+	$(PY) -m swiggy_ai.pipeline.gold
+
+gold-full:  ## Empty gold and rebuild it from silver
+	$(PY) -m swiggy_ai.pipeline.gold --full
+
 lint:  ## Ruff lint
 	.venv/bin/ruff check .
 
@@ -61,6 +67,9 @@ test-02:  ## Phase 2 tests
 
 test-03:  ## Phase 3 tests
 	$(PY) -m pytest tests/phase03 -q
+
+test-04:  ## Phase 4 tests
+	$(PY) -m pytest tests/phase04 -q
 
 test:  ## All tests
 	$(PY) -m pytest -q
