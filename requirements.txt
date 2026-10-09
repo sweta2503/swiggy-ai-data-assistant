@@ -1,0 +1,8 @@
+# Versions below are the ones this project was built and tested with.
+openai==3.26.1             # LLM calls (only used inside src/swiggy_ai/llm.py)
+pydantic==2.14.0           # typed models for settings, agent state, LLM output
+pydantic-settings==2.15.0  # reads .env into a typed Settings object
+psycopg[binary]==3.3.6     # PostgreSQL driver
+python-dotenv==1.2.4       # loads .env for scripts
+pytest==9.1.1              # tests
+ruff==0.16.10              # lint
