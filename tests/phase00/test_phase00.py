@@ -38,3 +38,20 @@ def test_llm_roundtrip():
     from swiggy_ai.check import check_llm
     ok, msg = check_llm()
     assert ok, msg
+
+
+def test_model_tiers_fall_back_to_the_default_model(monkeypatch):
+    from swiggy_ai import llm
+    from swiggy_ai.config import get_settings
+
+    base = Settings(_env_file=None, openai_model="base", openai_model_low="cheap")
+    monkeypatch.setattr(llm, "get_settings", lambda: base)
+    assert llm.resolve_model("low") == "cheap"  # tier set
+    assert llm.resolve_model("medium") == "base"  # tier empty -> default
+    assert llm.resolve_model("high") == "base"
+
+    empty = Settings(_env_file=None)
+    monkeypatch.setattr(llm, "get_settings", lambda: empty)
+    with pytest.raises(llm.LLMError, match="OPENAI_MODEL"):
+        llm.resolve_model("low")
+    assert get_settings() is not None

@@ -5,7 +5,7 @@ If the SDK changes, this is the one place to fix. Everything else calls
 """
 import time
 from dataclasses import dataclass
-from typing import Generic, TypeVar
+from typing import Generic, Literal, TypeVar
 
 import openai
 from pydantic import BaseModel
@@ -36,12 +36,24 @@ class LLMResult(Generic[T]):
     usage: Usage
 
 
+Tier = Literal["low", "medium", "high"]
+
+
+def resolve_model(tier: Tier = "medium") -> str:
+    """Pick the model for a job: OPENAI_MODEL_<TIER> if set, otherwise OPENAI_MODEL."""
+    s = get_settings()
+    model = {"low": s.openai_model_low, "medium": s.openai_model_medium,
+             "high": s.openai_model_high}[tier] or s.openai_model
+    if not model:
+        raise LLMError(f"No model for tier '{tier}'. Set OPENAI_MODEL (or OPENAI_MODEL_"
+                       f"{tier.upper()}) in .env.")
+    return model
+
+
 def _client() -> openai.OpenAI:
     s = get_settings()
     if not s.openai_api_key:
         raise LLMError("OPENAI_API_KEY is not set. Add it to .env.")
-    if not s.openai_model:
-        raise LLMError("OPENAI_MODEL is not set. Add a model name to .env.")
     return openai.OpenAI(api_key=s.openai_api_key, timeout=60, max_retries=0)
 
 
@@ -50,12 +62,13 @@ def complete_structured(
     instructions: str,
     user_input: str,
     schema: type[T],
+    tier: Tier = "medium",
     temperature: float | None = 0.0,
     retries: int = 3,
 ) -> LLMResult[T]:
     """Ask the model for JSON that matches `schema`. Retries rate limits/timeouts with backoff."""
     client = _client()
-    model = get_settings().openai_model
+    model = resolve_model(tier)
     kwargs: dict = {
         "model": model,
         "instructions": instructions,

@@ -50,6 +50,7 @@ def check_llm() -> tuple[bool, str]:
             instructions="Reply with the single word pong.",
             user_input="ping",
             schema=Pong,
+            tier="low",  # a health check never needs the expensive model
         )
         return True, f"LLM call ok ({r.usage.input_tokens}+{r.usage.output_tokens} tokens)"
     except LLMError as e:

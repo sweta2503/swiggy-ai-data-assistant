@@ -9,7 +9,14 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore", env_ignore_empty=True)
 
     openai_api_key: str = ""
-    openai_model: str = ""  # never hard-coded: you choose the model in .env
+    openai_model: str = ""  # default model, never hard-coded: you choose it in .env
+    # Optional per-job models. Empty means "use OPENAI_MODEL". Typical split:
+    #   low    = rewriting a question, narrating an answer (cheap)
+    #   medium = writing and repairing SQL (needs to be right)
+    #   high   = hard cases only
+    openai_model_low: str = ""
+    openai_model_medium: str = ""
+    openai_model_high: str = ""
 
     database_url_admin: str = "postgresql://swiggy_admin:admin_dev_pw@localhost:5433/swiggy"
     database_url_etl: str = "postgresql://etl_writer:etl_dev_pw@localhost:5433/swiggy"
