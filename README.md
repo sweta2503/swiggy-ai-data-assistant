@@ -4,7 +4,7 @@ Ask business questions in plain English. A multi-agent system answers from a rea
 data warehouse, shows the SQL, fixes its own failed queries, catches silently wrong
 results, and never exposes PII. All data is generated sample data.
 
-> Status: **Phases 0-5 done** (setup, synthetic data, bronze, silver, gold, data quality). The README grows with each chapter.
+> Status: **Phases 0-6 done** (setup, synthetic data, bronze, silver, gold, data quality, semantic layer). The README grows with each chapter.
 
 ## Prerequisites
 - Docker Desktop (running)
@@ -24,10 +24,11 @@ make silver-full   # 8. clean bronze into silver (about 15 seconds); later `make
 make gold-full     # 9. build the star schema (about 13 seconds); later `make gold` is incremental
 make dq            # 10. run the data quality checks (45 of them)
 make dq-demo       # 11. break a copy of gold on purpose and watch the checks catch it
+make catalog-check # 12. confirm semantic/catalog.yml describes every analytics view column
 ```
 
 ## Make targets
-Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full dq dq-demo lint test test-00 ... test-05 ci`.
+Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views dq dq-demo catalog-check lint test test-00 ... test-06 ci`.
 
 ## Troubleshooting
 - **`role "assistant_ro" does not exist`**: another Postgres is answering. This project
@@ -42,3 +43,8 @@ files to `data/raw/` and a ledger of the defects it injected to `data/raw/_defec
 (see `notes/chapter_01.md`). A few rows of each file type are in `data/sample/`.
 
 The gold star schema is drawn in `docs/erd.md`.
+
+## The semantic layer
+`semantic/metrics.yml` (one SQL definition per metric), `semantic/catalog.yml` (every column the
+assistant can see) and `semantic/glossary.md` are the single source of business meaning. Read
+`notes/chapter_06.md`.

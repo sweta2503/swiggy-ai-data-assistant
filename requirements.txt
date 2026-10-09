@@ -8,3 +8,5 @@ pytest==9.1.1              # tests
 ruff==0.16.10              # lint
 faker==40.41.0             # realistic Indian names and addresses
 numpy==2.4.6               # fast, seeded random numbers for the generator
+pyyaml==6.0.3             # reads the semantic layer YAML files
+sqlglot==30.21.0            # parses SQL (validates metric expressions now; the query guard later)

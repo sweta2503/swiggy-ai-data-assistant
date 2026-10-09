@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full dq dq-demo lint test test-00 test-01 test-02 test-03 test-04 test-05 ci
+.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 ci
 PY := .venv/bin/python
 export PYTHONPATH := src
 
@@ -53,6 +53,12 @@ gold:  ## Load new silver data into the gold star schema (incremental)
 gold-full:  ## Empty gold and rebuild it from silver
 	$(PY) -m swiggy_ai.pipeline.gold --full
 
+views:  ## (Re)create the analytics views the assistant reads
+	$(PY) -c "from swiggy_ai.db import connect; from swiggy_ai.pipeline.gold import apply_views; c = connect('etl', autocommit=True); apply_views(c); print('analytics views created')"
+
+catalog-check:  ## Fail if a column in an analytics view is missing from semantic/catalog.yml
+	$(PY) -m swiggy_ai.semantic
+
 dq:  ## Run all data quality checks (exit 1 if a blocking check fails)
 	$(PY) -m swiggy_ai.dq
 
@@ -79,6 +85,9 @@ test-04:  ## Phase 4 tests
 
 test-05:  ## Phase 5 tests
 	$(PY) -m pytest tests/phase05 -q
+
+test-06:  ## Phase 6 tests
+	$(PY) -m pytest tests/phase06 -q
 
 test:  ## All tests
 	$(PY) -m pytest -q

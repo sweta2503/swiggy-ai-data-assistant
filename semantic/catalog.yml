@@ -1,0 +1,224 @@
+# The catalog: what the assistant is allowed to read, and how to read it.
+# Every column of every view in the `analytics` schema must be listed here.
+# `make catalog-check` fails if the database and this file disagree.
+#
+# For each table:  kind, grain (what one row means), join_hints, do_not (known traps), synonyms
+# For each column: type, description, examples or allowed_values, pii / masked
+#
+# Types use short names: text, integer, numeric, date, timestamp, boolean.
+
+tables:
+  # ------------------------------------------------------------------------------------------
+  - name: analytics.orders
+    kind: fact
+    synonyms: [order, orders, sales, revenue, gmv, delivery, deliveries, cancellation, aov]
+    description: >
+      Every order placed, with its restaurant, city, the customer's segment at the time, status
+      and money amounts. The main table for sales, delivery time and cancellation questions.
+    grain: one row per order
+    join_hints:
+      - "Needs no joins for most questions: city, restaurant_name, cuisine and customer_segment
+        are already here."
+      - "Join analytics.calendar ON calendar.date = orders.order_date for weekend or festival
+        questions."
+    do_not:
+      - "Count orders with COUNT(*). Each row is one order."
+      - "Revenue means net_revenue: delivered orders only, order_value minus discount. Do not
+        use SUM(order_value) for revenue: it includes cancelled, failed and refunded orders and
+        is before discount."
+      - "Do not join analytics.order_items and then SUM order_value or net_revenue. Order-level
+        money repeats once per item line and the total inflates. Aggregate items separately, or
+        answer from this table alone."
+      - "customer_segment and customer_city are the values on the order date, not today's."
+      - "Group by day, week or month with order_date (IST business date), never order_ts."
+    columns:
+      - {name: order_id, type: text, description: Unique id of the order., examples: [ORD00000001]}
+      - {name: order_date, type: date, description: "IST calendar date the order was placed. Use this for every per-day, per-week and per-month question.", examples: ["2026-03-01"]}
+      - {name: order_ts, type: timestamp, description: "IST wall-clock time the order was placed. Use only for time-of-day questions (lunch, dinner).", examples: ["2026-03-01 13:05:44"]}
+      - {name: city, type: text, description: "City of the restaurant, which is the city the order was delivered in.", allowed_values: [Bengaluru, Chennai, Delhi NCR, Hyderabad, Mumbai, Pune]}
+      - {name: restaurant_id, type: text, description: Id of the restaurant., examples: [REST00001]}
+      - {name: restaurant_name, type: text, description: Name of the restaurant., examples: [Kumar Kitchen]}
+      - name: cuisine
+        type: text
+        description: Cuisine of the restaurant. 'Unknown' when the restaurant has no cuisine on file.
+        allowed_values: [Biryani, Burgers, Chinese, Continental, Desserts, Healthy, North Indian, Pizza, South Indian, Street Food, Unknown]
+      - {name: customer_id, type: text, description: Id of the customer who ordered. Not their name; no personal data., examples: [CUST000001]}
+      - name: customer_segment
+        type: text
+        description: "Loyalty segment of the customer on the order date: new, regular, loyal or vip."
+        allowed_values: [new, regular, loyal, vip]
+      - {name: customer_city, type: text, description: "City the customer lived in on the order date. Can differ from city if they ordered while elsewhere.", examples: [Pune]}
+      - name: status
+        type: text
+        description: "Final state of the order. delivered = completed and paid; cancelled = cancelled before delivery; refunded = delivered then refunded; failed = payment or system failure."
+        allowed_values: [delivered, cancelled, refunded, failed]
+      - {name: platform, type: text, description: App the order came from., allowed_values: [android, ios, web]}
+      - {name: delivery_minutes, type: integer, description: "Minutes from order to delivery. Empty (NULL) for cancelled and failed orders. Average only delivered orders.", examples: ["34"]}
+      - {name: order_value, type: numeric, description: "Items total in rupees, before discount, excluding delivery fee and taxes.", examples: ["425.00"]}
+      - {name: discount, type: numeric, description: Rupees discounted from the items total. 0 when no coupon was used., examples: ["50.00"]}
+      - {name: delivery_fee, type: numeric, description: "Delivery fee in rupees. 0 for orders of 499 or more.", examples: ["25.00"]}
+      - {name: taxes, type: numeric, description: Taxes in rupees., examples: ["18.75"]}
+      - {name: net_revenue, type: numeric, description: "order_value minus discount for delivered orders, and 0 for every other status. SUM(net_revenue) is the business definition of revenue.", examples: ["375.00"]}
+
+  # ------------------------------------------------------------------------------------------
+  - name: analytics.order_items
+    kind: fact
+    synonyms: [item, items, dish, dishes, product, menu, category, sold, selling, bestseller, quantity]
+    description: Every item line on every order. Use for questions about what was ordered.
+    grain: one row per item line on an order (an order with 3 dishes has 3 rows)
+    join_hints:
+      - "Join analytics.orders ON orders.order_id = order_items.order_id only when an order-level
+        column is needed that is not here (it is rarely needed: city, restaurant and order_status
+        are already here)."
+    do_not:
+      - "Never sum order-level money (order_value, net_revenue, discount) after joining to this
+        table. It repeats once per item line. Use line_total for item sales."
+      - "For item sales, filter order_status = 'delivered' unless the question says otherwise."
+      - "COUNT(*) here counts item lines, not orders. Use COUNT(DISTINCT order_id) for orders."
+    columns:
+      - {name: order_item_id, type: text, description: Unique id of the item line., examples: [OI00000001]}
+      - {name: order_id, type: text, description: The order this line belongs to., examples: [ORD00000001]}
+      - {name: order_date, type: date, description: IST date the order was placed., examples: ["2026-03-01"]}
+      - {name: order_status, type: text, description: Status of the parent order., allowed_values: [delivered, cancelled, refunded, failed]}
+      - {name: city, type: text, description: City of the restaurant., allowed_values: [Bengaluru, Chennai, Delhi NCR, Hyderabad, Mumbai, Pune]}
+      - {name: restaurant_id, type: text, description: Id of the restaurant., examples: [REST00001]}
+      - {name: restaurant_name, type: text, description: Name of the restaurant., examples: [Kumar Kitchen]}
+      - {name: cuisine, type: text, description: Cuisine of the restaurant., examples: [Biryani]}
+      - {name: item_name, type: text, description: "Dish name, sometimes with a size or style in brackets.", examples: [Masala Dosa, Chicken Dum Biryani (Large)]}
+      - {name: item_category, type: text, description: Menu category of the dish., allowed_values: [Beverages, Breads, Desserts, Main Course, Rice, Sides, Starters]}
+      - {name: qty, type: integer, description: Quantity ordered on this line., examples: ["2"]}
+      - {name: unit_price, type: numeric, description: Price in rupees of one unit., examples: ["180.00"]}
+      - {name: line_total, type: numeric, description: "qty times unit_price, before any order-level discount.", examples: ["360.00"]}
+
+  # ------------------------------------------------------------------------------------------
+  - name: analytics.refunds
+    kind: fact
+    synonyms: [refund, refunds, refunded, complaint, complaints, compensation]
+    description: Every refund paid out, with the reason code. Use to explain why refunds changed.
+    grain: one row per refund
+    join_hints:
+      - "Restaurant, city and cuisine are already here. Join analytics.orders ON order_id only
+        for order details such as platform or delivery_minutes."
+    do_not:
+      - "refund_date is when the money was refunded; order_date is when the order was placed.
+        For 'refunds in March' use refund_date unless the question says orders placed in March."
+      - "COUNT(*) counts refunds. The refund_rate metric is based on order status in
+        analytics.orders, not on this table."
+      - "To find why refunds rose, group by reason_code and by restaurant for the two periods
+        and compare them. Do not guess a cause."
+    columns:
+      - {name: refund_id, type: text, description: Unique id of the refund., examples: [RFD0000001]}
+      - {name: order_id, type: text, description: The order that was refunded., examples: [ORD00000001]}
+      - {name: order_date, type: date, description: IST date the order was placed., examples: ["2026-03-01"]}
+      - {name: refund_date, type: date, description: IST date the refund was paid., examples: ["2026-03-02"]}
+      - {name: city, type: text, description: City of the restaurant., allowed_values: [Bengaluru, Chennai, Delhi NCR, Hyderabad, Mumbai, Pune]}
+      - {name: restaurant_id, type: text, description: Id of the restaurant., examples: [REST00001]}
+      - {name: restaurant_name, type: text, description: Name of the restaurant., examples: [Kumar Kitchen]}
+      - {name: cuisine, type: text, description: Cuisine of the restaurant., examples: [Biryani]}
+      - name: reason_code
+        type: text
+        description: "Why the refund was paid. SPOILED_FOOD = food arrived spoiled; LATE_DELIVERY; MISSING_ITEM; WRONG_ITEM; QUALITY_ISSUE = general quality complaint."
+        allowed_values: [LATE_DELIVERY, MISSING_ITEM, WRONG_ITEM, QUALITY_ISSUE, SPOILED_FOOD]
+      - {name: refund_amount, type: numeric, description: Rupees refunded. Can be less than the order total for partial refunds., examples: ["320.50"]}
+
+  # ------------------------------------------------------------------------------------------
+  - name: analytics.customers
+    kind: dimension
+    synonyms: [customer, customers, user, users, signup, signups, acquired, acquisition]
+    description: One row per customer with their CURRENT city and segment. Contains no contact details.
+    grain: one row per customer
+    join_hints:
+      - "Join analytics.orders ON customers.customer_id = orders.customer_id for order history."
+    do_not:
+      - "These are current values. To analyse by the segment a customer had when they ordered,
+        use analytics.orders.customer_segment instead of joining here."
+      - "Names, emails, phone numbers and addresses are not available. Do not try to retrieve
+        them; masked_phone only shows the last four digits and identifies nobody."
+    columns:
+      - {name: customer_id, type: text, description: Unique id of the customer., examples: [CUST000001]}
+      - {name: city, type: text, description: Current city of the customer. 'Unknown' when never recorded., examples: [Pune]}
+      - {name: segment, type: text, description: Current loyalty segment., allowed_values: [new, regular, loyal, vip]}
+      - {name: signup_date, type: date, description: "IST date the customer joined. Use this for new-customer counts.", examples: ["2025-11-20"]}
+      - {name: masked_phone, type: text, description: "Phone number with all but the last four digits hidden. Not useful for analysis.", examples: [XXXXXX9858], masked: true}
+
+  # ------------------------------------------------------------------------------------------
+  - name: analytics.restaurants
+    kind: dimension
+    synonyms: [restaurant, restaurants, partner, partners, outlet, rating, ratings, onboarded]
+    description: One row per restaurant on the platform.
+    grain: one row per restaurant
+    join_hints:
+      - "Join analytics.orders ON restaurants.restaurant_id = orders.restaurant_id. City,
+        name and cuisine are already in orders, so the join is rarely needed."
+    do_not:
+      - "rating is the restaurant's listed rating, not computed from orders."
+    columns:
+      - {name: restaurant_id, type: text, description: Unique id of the restaurant., examples: [REST00001]}
+      - {name: restaurant_name, type: text, description: Name of the restaurant., examples: [Kumar Kitchen]}
+      - {name: cuisine, type: text, description: Cuisine. 'Unknown' when not on file., examples: [Biryani]}
+      - {name: city, type: text, description: City of the restaurant., allowed_values: [Bengaluru, Chennai, Delhi NCR, Hyderabad, Mumbai, Pune]}
+      - {name: rating, type: numeric, description: Listed customer rating from 1 to 5., examples: ["4.2"]}
+      - {name: onboarded_date, type: date, description: Date the restaurant joined the platform., examples: ["2024-06-01"]}
+      - {name: is_active, type: boolean, description: True if the restaurant is currently open for orders.}
+
+  # ------------------------------------------------------------------------------------------
+  - name: analytics.calendar
+    kind: dimension
+    synonyms: [calendar, weekend, weekday, festival, holiday, quarter]
+    description: One row per IST calendar date, with weekend and festival flags.
+    grain: one row per date
+    join_hints:
+      - "Join ON calendar.date = orders.order_date."
+    do_not:
+      - "Weeks start on Monday: use week_start_date to group by week."
+    columns:
+      - {name: date, type: date, description: The IST calendar date., examples: ["2026-03-01"]}
+      - {name: day_name, type: text, description: Name of the weekday., examples: [Sunday]}
+      - {name: day_of_week, type: integer, description: "1 = Monday ... 7 = Sunday.", examples: ["7"]}
+      - {name: is_weekend, type: boolean, description: True for Saturday and Sunday.}
+      - {name: week_start_date, type: date, description: The Monday of that date's week., examples: ["2026-02-23"]}
+      - {name: month_start_date, type: date, description: First day of that date's month., examples: ["2026-03-01"]}
+      - {name: month_name, type: text, description: Name of the month., examples: [March]}
+      - {name: quarter, type: integer, description: Calendar quarter 1 to 4., examples: ["1"]}
+      - {name: year, type: integer, description: Calendar year., examples: ["2026"]}
+      - {name: is_festival, type: boolean, description: "True on festival days, when order volume spikes."}
+      - {name: festival_name, type: text, description: Name of the festival. Empty on normal days., examples: [Festival 1]}
+
+  # ------------------------------------------------------------------------------------------
+  - name: analytics.daily_city_sales
+    kind: aggregate
+    synonyms: [daily, trend, trends, per day, by day, city sales]
+    description: Pre-added daily totals per city. A fast path for day-by-city trends.
+    grain: one row per IST day per city
+    join_hints:
+      - "No joins needed. For anything beyond day and city, use analytics.orders."
+    do_not:
+      - "It cannot be split by cuisine, restaurant, segment or platform. Use analytics.orders."
+      - "Do not average avg_delivery_minutes across days: it is already an average. Weight by
+        delivered_orders or use analytics.orders."
+    columns:
+      - {name: order_date, type: date, description: "IST date the totals are for.", examples: ["2026-03-01"]}
+      - {name: city, type: text, description: "City the totals are for.", allowed_values: [Bengaluru, Chennai, Delhi NCR, Hyderabad, Mumbai, Pune]}
+      - {name: orders, type: integer, description: "Orders placed that day in that city, any status.", examples: ["95"]}
+      - {name: delivered_orders, type: integer, description: Orders with status delivered., examples: ["84"]}
+      - {name: cancelled_orders, type: integer, description: Orders with status cancelled., examples: ["8"]}
+      - {name: refunded_orders, type: integer, description: Orders with status refunded., examples: ["3"]}
+      - {name: failed_orders, type: integer, description: Orders with status failed., examples: ["1"]}
+      - {name: gross_order_value, type: numeric, description: "Items total before discount, delivered orders only.", examples: ["42000.00"]}
+      - {name: discount_total, type: numeric, description: Discounts on delivered orders., examples: ["3100.00"]}
+      - {name: net_revenue, type: numeric, description: gross_order_value minus discount_total., examples: ["38900.00"]}
+      - {name: avg_delivery_minutes, type: numeric, description: Average delivery minutes of delivered orders., examples: ["36.40"]}
+
+  # ------------------------------------------------------------------------------------------
+  - name: analytics.data_as_of
+    kind: reference
+    synonyms: [today, yesterday, latest, current date, recent]
+    description: "One row that says what 'today' means for relative dates."
+    grain: one row
+    join_hints:
+      - "Use (SELECT today FROM analytics.data_as_of) wherever you would write CURRENT_DATE."
+    do_not:
+      - "Never use CURRENT_DATE or NOW(). Relative dates are measured from data_as_of.today."
+    columns:
+      - {name: latest_order_date, type: date, description: IST date of the newest order in the data., examples: ["2026-10-08"]}
+      - {name: today, type: date, description: "The day after latest_order_date. 'Yesterday' is therefore the newest day with data.", examples: ["2026-10-09"]}

@@ -48,6 +48,11 @@ def seed_festivals(conn: psycopg.Connection, data_dir: Path | None) -> int:
     return len(dates)
 
 
+def apply_views(conn: psycopg.Connection) -> None:
+    """(Re)create the analytics views the assistant reads. Safe to repeat."""
+    conn.execute((SQL_ROOT / "security" / "10_analytics_views.sql").read_text())
+
+
 def reset_gold(conn: psycopg.Connection) -> None:
     """Empty gold (keeps the table definitions). Surrogate keys restart from 1."""
     conn.execute("TRUNCATE gold.fact_refunds, gold.fact_order_items, gold.fact_orders,"
@@ -68,6 +73,7 @@ def run_gold(conn: psycopg.Connection, full: bool = False,
         for path in sorted((SQL_ROOT / "gold").glob("*.sql")):
             if path.name != "00_tables.sql":
                 conn.execute(path.read_text())
+        apply_views(conn)
         for t in TABLES:
             report.rows[t] = _count(conn, t)
             report.added[t] = report.rows[t] - before[t]

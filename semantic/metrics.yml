@@ -1,0 +1,150 @@
+# Business metrics: ONE definition each, in plain SQL. The assistant must use these verbatim and
+# must not invent its own revenue, AOV or rate. Review this file with the business owners.
+#
+# Fields
+#   name            snake_case id
+#   description     plain English
+#   source          the analytics view the expression runs on
+#   time_column     the date column to filter on for "last week", "in March" ...
+#   sql_expression  a single aggregate expression, safe to drop into SELECT
+#   grain           what one result row means when grouped
+#   filters         conditions ALREADY applied inside sql_expression (for humans and the LLM)
+#   synonyms        other words people use for it
+#   owner           the team that answers questions about the definition
+#   unit            count | rupees | ratio | minutes
+
+conventions:
+  timezone: Asia/Kolkata
+  week_starts_on: Monday
+  reference_date: >
+    "Today" is (SELECT today FROM analytics.data_as_of): the day after the newest order. Never use
+    CURRENT_DATE or NOW(). "Yesterday" is therefore the newest day that has data.
+  rules:
+    - All dates are IST business dates. Filter and group by order_date (or refund_date), not by timestamps.
+    - Weeks start on Monday, so use date_trunc('week', ...) which also starts on Monday.
+    - Money is in Indian rupees. Rates are fractions between 0 and 1; multiply by 100 to show a percentage.
+    - Revenue always means net_revenue. Do not invent another revenue definition.
+    - Use only the analytics views. Personal data (names, phones, emails, addresses) is not available.
+    - 'The words "best", "top" and "worst" need a measure. If the question gives none, ask which measure to use.'
+  period_templates:
+    # T is today: (SELECT today FROM analytics.data_as_of). Replace <col> with the view's date column.
+    yesterday: "<col> = T - 1"
+    last_7_days: "<col> >= T - 7 AND <col> < T"
+    last_week: "<col> >= date_trunc('week', T) - INTERVAL '7 days' AND <col> < date_trunc('week', T)"
+    this_week: "<col> >= date_trunc('week', T) AND <col> < T"
+    last_month: "<col> >= date_trunc('month', T) - INTERVAL '1 month' AND <col> < date_trunc('month', T)"
+    this_month: "<col> >= date_trunc('month', T) AND <col> < T"
+    previous_month: "<col> >= date_trunc('month', T) - INTERVAL '2 months' AND <col> < date_trunc('month', T) - INTERVAL '1 month'"
+
+metrics:
+  - name: orders
+    description: Number of orders placed, whatever their final status.
+    source: analytics.orders
+    time_column: order_date
+    sql_expression: "COUNT(*)"
+    grain: one number per group of orders
+    filters: []
+    synonyms: [order count, number of orders, total orders, orders placed, order volume]
+    owner: operations
+    unit: count
+
+  - name: delivered_orders
+    description: Number of orders that were delivered (status delivered).
+    source: analytics.orders
+    time_column: order_date
+    sql_expression: "COUNT(*) FILTER (WHERE status = 'delivered')"
+    grain: one number per group of orders
+    filters: ["status = 'delivered'"]
+    synonyms: [completed orders, successful orders, fulfilled orders]
+    owner: operations
+    unit: count
+
+  - name: gross_order_value
+    description: Items total before discount, for delivered orders. Excludes delivery fee and taxes.
+    source: analytics.orders
+    time_column: order_date
+    sql_expression: "SUM(order_value) FILTER (WHERE status = 'delivered')"
+    grain: one number per group of orders
+    filters: ["status = 'delivered'"]
+    synonyms: [gmv, gross sales, gross merchandise value, sales before discount]
+    owner: finance
+    unit: rupees
+
+  - name: net_revenue
+    description: >
+      order_value minus discount, for delivered orders only. Excludes delivery fee and taxes.
+      This is THE revenue number.
+    source: analytics.orders
+    time_column: order_date
+    sql_expression: "SUM(order_value - discount) FILTER (WHERE status = 'delivered')"
+    grain: one number per group of orders
+    filters: ["status = 'delivered'"]
+    synonyms: [revenue, sales, net sales, turnover, income, earnings]
+    owner: finance
+    unit: rupees
+
+  - name: aov
+    description: Average order value. net_revenue divided by delivered_orders.
+    source: analytics.orders
+    time_column: order_date
+    sql_expression: "SUM(order_value - discount) FILTER (WHERE status = 'delivered') / NULLIF(COUNT(*) FILTER (WHERE status = 'delivered'), 0)"
+    grain: one number per group of orders
+    filters: ["status = 'delivered'"]
+    synonyms: [average order value, average basket, basket size, average ticket, ticket size]
+    owner: finance
+    unit: rupees
+
+  - name: cancellation_rate
+    description: Cancelled orders divided by all orders placed.
+    source: analytics.orders
+    time_column: order_date
+    sql_expression: "COUNT(*) FILTER (WHERE status = 'cancelled')::numeric / NULLIF(COUNT(*), 0)"
+    grain: one number per group of orders
+    filters: []
+    synonyms: [cancel rate, cancellations, cancelled share, order cancellation]
+    owner: operations
+    unit: ratio
+
+  - name: avg_delivery_minutes
+    description: Average minutes from order to delivery, for delivered orders.
+    source: analytics.orders
+    time_column: order_date
+    sql_expression: "AVG(delivery_minutes) FILTER (WHERE status = 'delivered')"
+    grain: one number per group of orders
+    filters: ["status = 'delivered'"]
+    synonyms: [delivery time, average delivery time, eta, speed, how long deliveries take, delivery duration]
+    owner: operations
+    unit: minutes
+
+  - name: refund_rate
+    description: Refunded orders divided by delivered orders.
+    source: analytics.orders
+    time_column: order_date
+    sql_expression: "COUNT(*) FILTER (WHERE status = 'refunded')::numeric / NULLIF(COUNT(*) FILTER (WHERE status = 'delivered'), 0)"
+    grain: one number per group of orders
+    filters: []
+    synonyms: [refund share, refunds, refunded share, share of orders refunded]
+    owner: customer-experience
+    unit: ratio
+
+  - name: active_customers
+    description: Distinct customers with at least one delivered order in the period.
+    source: analytics.orders
+    time_column: order_date
+    sql_expression: "COUNT(DISTINCT customer_id) FILTER (WHERE status = 'delivered')"
+    grain: one number per group of orders
+    filters: ["status = 'delivered'"]
+    synonyms: [active users, unique customers, customers who ordered, buyers, mau, dau]
+    owner: growth
+    unit: count
+
+  - name: new_customers
+    description: Customers who joined (signup_date) in the period.
+    source: analytics.customers
+    time_column: signup_date
+    sql_expression: "COUNT(*)"
+    grain: one number per group of customers
+    filters: []
+    synonyms: [new users, signups, new signups, acquired customers, customer acquisition, joined]
+    owner: growth
+    unit: count
