@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv env up down reset-db psql check data lint test test-00 test-01 ci
+.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test lint test test-00 test-01 test-02 ci
 PY := .venv/bin/python
 export PYTHONPATH := src
 
@@ -32,6 +32,15 @@ check:  ## Verify env, database, roles and one tiny LLM call
 data:  ## Generate deterministic sample data into data/raw (seed 42)
 	$(PY) -m swiggy_ai.datagen --seed 42
 
+bronze:  ## Load new source files into bronze (skips files already loaded)
+	$(PY) -m swiggy_ai.pipeline.bronze_loader
+
+bronze-reset:  ## Forget all loaded bronze data, then reload from data/raw
+	$(PY) -m swiggy_ai.pipeline.bronze_loader --reset
+
+bronze-rerun-test:  ## Load twice; fail unless the second run loads nothing
+	$(PY) -m swiggy_ai.pipeline.bronze_loader --rerun-test
+
 lint:  ## Ruff lint
 	.venv/bin/ruff check .
 
@@ -40,6 +49,9 @@ test-00:  ## Phase 0 tests
 
 test-01:  ## Phase 1 tests
 	$(PY) -m pytest tests/phase01 -q
+
+test-02:  ## Phase 2 tests
+	$(PY) -m pytest tests/phase02 -q
 
 test:  ## All tests
 	$(PY) -m pytest -q
