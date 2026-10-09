@@ -4,7 +4,7 @@ Ask business questions in plain English. A multi-agent system answers from a rea
 data warehouse, shows the SQL, fixes its own failed queries, catches silently wrong
 results, and never exposes PII. All data is generated sample data.
 
-> Status: **Phases 0-4 done** (setup, synthetic data, bronze, silver, gold). The README grows with each chapter.
+> Status: **Phases 0-5 done** (setup, synthetic data, bronze, silver, gold, data quality). The README grows with each chapter.
 
 ## Prerequisites
 - Docker Desktop (running)
@@ -22,10 +22,12 @@ make data          # 6. generate the sample data into data/raw (about 3 seconds)
 make bronze        # 7. load the raw files into bronze tables (run it twice: second run loads nothing)
 make silver-full   # 8. clean bronze into silver (about 15 seconds); later `make silver` is incremental
 make gold-full     # 9. build the star schema (about 13 seconds); later `make gold` is incremental
+make dq            # 10. run the data quality checks (45 of them)
+make dq-demo       # 11. break a copy of gold on purpose and watch the checks catch it
 ```
 
 ## Make targets
-Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full lint test test-00 ... test-04 ci`.
+Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full dq dq-demo lint test test-00 ... test-05 ci`.
 
 ## Troubleshooting
 - **`role "assistant_ro" does not exist`**: another Postgres is answering. This project

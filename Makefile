@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full lint test test-00 test-01 test-02 test-03 test-04 ci
+.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full dq dq-demo lint test test-00 test-01 test-02 test-03 test-04 test-05 ci
 PY := .venv/bin/python
 export PYTHONPATH := src
 
@@ -53,6 +53,12 @@ gold:  ## Load new silver data into the gold star schema (incremental)
 gold-full:  ## Empty gold and rebuild it from silver
 	$(PY) -m swiggy_ai.pipeline.gold --full
 
+dq:  ## Run all data quality checks (exit 1 if a blocking check fails)
+	$(PY) -m swiggy_ai.dq
+
+dq-demo:  ## Corrupt a COPY of gold (duplicate a day) and show the checks catch it
+	$(PY) -m swiggy_ai.dq --demo
+
 lint:  ## Ruff lint
 	.venv/bin/ruff check .
 
@@ -70,6 +76,9 @@ test-03:  ## Phase 3 tests
 
 test-04:  ## Phase 4 tests
 	$(PY) -m pytest tests/phase04 -q
+
+test-05:  ## Phase 5 tests
+	$(PY) -m pytest tests/phase05 -q
 
 test:  ## All tests
 	$(PY) -m pytest -q
