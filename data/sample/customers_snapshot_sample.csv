@@ -1,0 +1,6 @@
+snapshot_date,customer_id,name,phone,email,address_line,pincode,city,segment,signup_date
+2025-10-09,CUST000001,Aryan Maharaj,6665879858,aryanmaharaj1@gmail.com,"60/30, Pathak Chowk",600331,Chennai,regular,2024-09-05
+2025-10-09,CUST000002,Udant Dewan,8152928019,udantdewan2@outlook.com,"93
+Sachdeva",411676,Pune,regular,2024-09-05
+2025-10-09,CUST000003,Gagan Sami,7732600764,gagansami3@outlook.com,"299, Lad Zila",560914,Bengaluru,regular,2024-09-05
+2025-10-09,CUST000004,Ayushman Chander,9193056503,ayushmanchander4@gmail.com,"76/343

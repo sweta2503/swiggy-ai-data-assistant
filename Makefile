@@ -1,4 +1,5 @@
 .DEFAULT_GOAL := help
+.PHONY: help venv env up down reset-db psql check data lint test test-00 test-01 ci
 PY := .venv/bin/python
 export PYTHONPATH := src
 
@@ -28,11 +29,17 @@ psql:  ## Open a psql shell as admin
 check:  ## Verify env, database, roles and one tiny LLM call
 	$(PY) -m swiggy_ai.check
 
+data:  ## Generate deterministic sample data into data/raw (seed 42)
+	$(PY) -m swiggy_ai.datagen --seed 42
+
 lint:  ## Ruff lint
 	.venv/bin/ruff check .
 
 test-00:  ## Phase 0 tests
 	$(PY) -m pytest tests/phase00 -q
+
+test-01:  ## Phase 1 tests
+	$(PY) -m pytest tests/phase01 -q
 
 test:  ## All tests
 	$(PY) -m pytest -q

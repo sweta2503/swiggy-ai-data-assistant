@@ -6,3 +6,5 @@ psycopg[binary]==3.3.6     # PostgreSQL driver
 python-dotenv==1.2.4       # loads .env for scripts
 pytest==9.1.1              # tests
 ruff==0.16.10              # lint
+faker==40.41.0             # realistic Indian names and addresses
+numpy==2.4.6               # fast, seeded random numbers for the generator
