@@ -75,6 +75,9 @@ tables:
         table. It repeats once per item line. Use line_total for item sales."
       - "For item sales, filter order_status = 'delivered' unless the question says otherwise."
       - "COUNT(*) here counts item lines, not orders. Use COUNT(DISTINCT order_id) for orders."
+      - "Discounts apply to a whole order, so net revenue cannot be split exactly by item or
+        category. line_total is BEFORE discount: call a total of it 'item sales', never 'net
+        revenue', and say in the assumptions that it is before discount."
     columns:
       - {name: order_item_id, type: text, description: Unique id of the item line., examples: [OI00000001]}
       - {name: order_id, type: text, description: The order this line belongs to., examples: [ORD00000001]}
