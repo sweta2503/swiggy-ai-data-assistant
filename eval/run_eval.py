@@ -207,7 +207,8 @@ def main(argv: list[str] | None = None) -> int:
             print("note: DEMO_FAULT_INJECTION is on in .env; it is ignored for the evaluation")
         settings = settings.model_copy(update={"demo_fault_injection": False})
         from swiggy_ai.agents.runtime import Runtime
-        assistant = Assistant(Runtime.create(settings), audit=False)
+        # never the cache: an evaluation must measure the real thing
+        assistant = Assistant(Runtime.create(settings), audit=False, cache=False)
         data_until = ref_conn.execute("SELECT max(order_date_ist) FROM gold.fact_orders"
                                       ).fetchone()[0]
         started = datetime.now(UTC)

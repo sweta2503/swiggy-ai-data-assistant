@@ -32,10 +32,12 @@ make report        # 16. how the assistant has been doing (from the audit trail)
 make eval          # 17. score the assistant on 30 golden questions (calls OpenAI, costs a little)
 make drift-demo    # 18. a source renames a column: watch it get quarantined, then approved
 make refresh-catalog # 19. update catalog.yml from the database after a view changes
+make daily         # 20. bronze -> silver -> gold -> dq -> catalog -> publish, in one go
+make scheduler     # 21. run `make daily` every day at 06:00 India time
 ```
 
 ## Make targets
-Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-11 drift-demo refresh-catalog report eval eval-check eval-gate eval-compare ci`.
+Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-12 daily scheduler cache-clear drift-demo refresh-catalog report eval eval-check eval-gate eval-compare ci`.
 
 ## Troubleshooting
 - **`role "assistant_ro" does not exist`**: another Postgres is answering. This project
@@ -95,6 +97,15 @@ If a source file's columns change (a rename, a new or missing column), the loade
 a change by editing `src/swiggy_ai/pipeline/column_aliases.yml` and running `make bronze`.
 `make drift-demo` shows the whole story without touching your data; `make refresh-catalog` brings
 `semantic/catalog.yml` back in line with the database. See `notes/chapter_11.md`.
+
+## Daily run, scheduling and the answer cache
+`make daily` refreshes everything and publishes a new *data version* only if no blocking data-quality
+check failed; each run is recorded in `ops.pipeline_runs`. Schedule it with `make scheduler`, or with
+cron: `0 6 * * * cd /path/to/swiggy-ai-data-assistant && make daily >> logs/daily.log 2>&1`.
+`orchestration/airflow/swiggy_daily_dag.py` is a teaching-only Airflow version. With
+`Assistant(cache=True)` repeated first questions are served from `ops.answer_cache` (keyed by question,
+data version and city scope); `ask(..., fresh=True)` bypasses it, `make cache-clear` empties it. See
+`notes/chapter_12.md`.
 
 ## Cost reporting
 Add the price of each model in `.env` (`PRICE_INPUT_PER_1M`, `PRICE_OUTPUT_PER_1M`, US dollars per

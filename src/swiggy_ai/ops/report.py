@@ -30,6 +30,7 @@ class Report:
     model_runs: int = 0  # questions that used the model at all
     guard_rejections: int = 0
     fault_runs: int = 0
+    cache_hits: int = 0
     error_classes: list[tuple[str, int]] = field(default_factory=list)
     slowest_queries: list[tuple[int, str, str, str]] = field(default_factory=list)
 
@@ -67,7 +68,7 @@ def collect(conn: psycopg.Connection, days: int = 7) -> Report:
 
     (r.healed, r.users, r.tokens_in, r.tokens_out, r.avg_latency_ms, r.p50_latency_ms,
      r.p95_latency_ms, r.cost_total, r.cost_avg, r.runs_with_cost, r.model_runs,
-     r.fault_runs) = conn.execute(
+     r.fault_runs, r.cache_hits) = conn.execute(
         f"SELECT count(*) FILTER (WHERE status = 'answered' AND healed), count(DISTINCT user_id),"
         " coalesce(sum(tokens_in), 0), coalesce(sum(tokens_out), 0), avg(latency_ms),"
         " percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms),"
@@ -75,7 +76,7 @@ def collect(conn: psycopg.Connection, days: int = 7) -> Report:
         " sum(est_cost), avg(est_cost) FILTER (WHERE tokens_in + tokens_out > 0),"
         " count(est_cost) FILTER (WHERE tokens_in + tokens_out > 0),"
         " count(*) FILTER (WHERE tokens_in + tokens_out > 0),"
-        " count(*) FILTER (WHERE fault_injected)"
+        " count(*) FILTER (WHERE fault_injected), count(*) FILTER (WHERE cache_hit)"
         f" FROM ops.assistant_runs r WHERE {window}", (days,)).fetchone()
 
     # Postgres returns avg() as an exact decimal; the report works in plain floats for timings.
@@ -113,6 +114,10 @@ def render(r: Report) -> str:
         f"Heal rate         {pct(r.heal_rate)}   ({r.healed} answered only after a repair)",
         f"Guard rejections  {r.guard_rejections}   (queries the safety guard refused to run)",
     ]
+    if r.cache_hits:
+        share = pct(r.cache_hits / r.total)
+        out.append(f"Cache hits        {r.cache_hits}   ({share} of questions were served from "
+                   "the answer cache; no model call)")
     if r.fault_runs:
         out.append(f"Demo faults       {r.fault_runs} run(s) had a deliberate fault injected")
     out += ["", "Routes            " + ", ".join(f"{k} {v}" for k, v in r.by_route.items())]
@@ -121,9 +126,13 @@ def render(r: Report) -> str:
     out += ["", "Slowest queries"]
     for ms, user, status, sql in r.slowest_queries:
         out.append(f"  {ms:>6} ms  {status:<8} {user:<18} {' '.join(sql.split())[:70]}")
-    out += ["", "Speed             "
-            f"average {r.avg_latency_ms:,.0f} ms, median {r.p50_latency_ms:,.0f} ms, "
-            f"95th percentile {r.p95_latency_ms:,.0f} ms (whole question)"]
+    if r.avg_latency_ms is None:
+        out += ["", "Speed             n/a (every question was served from the cache)"]
+    else:
+        out += ["", "Speed             "
+                f"average {r.avg_latency_ms:,.0f} ms, median {r.p50_latency_ms:,.0f} ms, "
+                f"95th percentile {r.p95_latency_ms:,.0f} ms (whole question"
+                + (", cache hits excluded)" if r.cache_hits else ")")]
     out += ["", f"Tokens            {r.tokens_in:,} in, {r.tokens_out:,} out"]
     if r.model_runs == 0:
         out.append("Cost (USD)        $0 (no question used the model)")

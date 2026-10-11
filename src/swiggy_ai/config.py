@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     max_rows: int = Field(default=500, ge=1)
     max_plan_cost: float = 100_000
 
+    answer_cache: bool = True  # the API and UI serve repeated first questions from ops.answer_cache
     demo_fault_injection: bool = False
     demo_fault_name: str = ""  # which entry of eval/fault_injection.yml to use (default: first)
 

@@ -1,9 +1,11 @@
 """The assistant as other code (the API, the UI, the command line, the evaluation) uses it."""
 import logging
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from typing import Any
+
+from pydantic import TypeAdapter
 
 from swiggy_ai.agents.graph import build_graph
 from swiggy_ai.agents.router import MAX_QUESTION_CHARS
@@ -14,10 +16,13 @@ from swiggy_ai.agents.state import (
     Check,
     Clarification,
     StepResult,
+    Turn,
     Usage,
     fresh_turn,
 )
 from swiggy_ai.llm import LLMError, resolve_model
+from swiggy_ai.logging_setup import scrub
+from swiggy_ai.ops import cache as answer_cache
 from swiggy_ai.ops.audit import AttemptRecord, RunRecord, ensure_audit_tables, record_run
 from swiggy_ai.ops.cost import estimate_cost
 from swiggy_ai.security.scope import AppUser
@@ -45,33 +50,117 @@ class Answer:
     run_id: str = ""
     est_cost: Decimal | None = None  # US dollars; None when prices are not set
     audit_ok: bool = True  # False if the audit record could not be written
+    cache_hit: bool = False  # served from ops.answer_cache: no model was called
+    cached_at: str = ""  # when the cached answer was worked out
 
     @property
     def healed(self) -> bool:
         return any(a.status != "ok" for a in self.attempts) and self.status == "answered"
 
 
+ANSWER = TypeAdapter(Answer)
+CACHEABLE_ROUTES = {"simple", "multi_step"}
+
+
+@dataclass
+class CachePlan:
+    key: str
+    question_norm: str
+    data_version: int
+    scope: str
+
+
 class Assistant:
-    def __init__(self, runtime: Runtime | None = None, audit: bool = True):
+    """`cache=True` serves repeated first questions from ops.answer_cache. It is off by default so
+    that tests and the evaluation always measure the real thing; the interfaces turn it on."""
+
+    def __init__(self, runtime: Runtime | None = None, audit: bool = True, cache: bool = False):
         self.rt = runtime or Runtime.create()
         self.graph = build_graph(self.rt)
         self.audit = audit
-        if audit:
+        self.cache = cache
+        if audit or cache:
             with self.rt.open_service() as conn:
-                ensure_audit_tables(conn)
+                if audit:
+                    ensure_audit_tables(conn)
+                if cache:
+                    answer_cache.ensure_cache_tables(conn)
 
-    def ask(self, question: str, user: AppUser, thread_id: str | None = None) -> Answer:
-        """Answer one question, and write it to the audit trail (even refusals and failures)."""
+    def ask(self, question: str, user: AppUser, thread_id: str | None = None,
+            fresh: bool = False) -> Answer:
+        """Answer one question, and write it to the audit trail (even refusals and failures).
+        `fresh=True` skips the cache lookup (the new answer still replaces the cached one)."""
         run_id = uuid.uuid4()
         thread = thread_id or uuid.uuid4().hex
         question = (question or "").strip()
         started = self.rt.clock()
-        answer = self._answer(question, user, thread, started)
+        plan = self._cache_plan(question, user, thread)
+        answer = None if (plan is None or fresh) else self._cache_get(plan, thread, started)
+        if answer is None:
+            answer = self._answer(question, user, thread, started)
+            self._cache_put(plan, answer)
         answer.run_id = str(run_id)
         answer.est_cost = estimate_cost(answer.usage, self.rt.settings).usd
         if self.audit and question:
             answer.audit_ok = self._write_audit(run_id, question, user, answer)
         return answer
+
+    # ---------------------------------------------------------------- the cache ---------------
+    def _cache_plan(self, question: str, user: AppUser, thread: str) -> CachePlan | None:
+        """Is this question eligible, and under which key? None means: do not use the cache."""
+        if not self.cache or not question or len(question) > MAX_QUESTION_CHARS:
+            return None
+        if scrub(question) != question:  # looks like it contains personal data: never store it
+            return None
+        try:
+            cfg = {"configurable": {"thread_id": thread}}
+            if self.graph.get_state(cfg).values.get("history"):
+                return None  # a follow-up depends on the conversation, not just its words
+            norm = answer_cache.normalize(question)
+            scope = answer_cache.scope_hash(user.allowed_cities)
+            with self.rt.open_service() as conn:
+                version = answer_cache.get_data_version(conn)
+            return CachePlan(answer_cache.cache_key(norm, version, scope), norm, version, scope)
+        except Exception as e:  # noqa: BLE001 - the cache must never break answering
+            log.error("cache unavailable (%s); answering without it", type(e).__name__)
+            return None
+
+    def _cache_get(self, plan: CachePlan, thread: str, started: float) -> Answer | None:
+        try:
+            with self.rt.open_service() as conn:
+                found = answer_cache.lookup(conn, plan.key)
+            if found is None:
+                return None
+            data, created = found
+            hit = replace(ANSWER.validate_python(data), thread_id=thread, cache_hit=True,
+                          cached_at=created.isoformat(timespec="seconds"), usage=Usage(),
+                          latency_ms=int((self.rt.clock() - started) * 1000))
+            turn = Turn(question=plan.question_norm, rewritten=hit.understood_as, route=hit.route,
+                        sql=hit.sql, answer=hit.answer[:500])
+            self.graph.update_state({"configurable": {"thread_id": thread}},
+                                    {"history": [turn]}, as_node="finalize")
+            log.info("cache hit: version %s, answer from %s", plan.data_version, hit.cached_at)
+            return hit
+        except Exception as e:  # noqa: BLE001
+            log.error("cache lookup failed (%s); answering without it", type(e).__name__)
+            return None
+
+    def _cache_put(self, plan: CachePlan | None, a: Answer) -> None:
+        """Keep only answers that are complete, clean and standalone."""
+        if plan is None or a.status != "answered" or a.fault_injected or a.cache_hit:
+            return
+        if a.route not in CACHEABLE_ROUTES:
+            return
+        if any("repaired automatically" not in w for w in a.warnings):
+            return  # a warning means "treat with care"; do not repeat it from a cache
+        try:
+            data = ANSWER.dump_python(replace(a, run_id="", thread_id="", est_cost=None,
+                                              audit_ok=True), mode="json")
+            with self.rt.open_service() as conn:
+                answer_cache.store(conn, plan.key, plan.question_norm, plan.data_version,
+                                   plan.scope, data)
+        except Exception as e:  # noqa: BLE001
+            log.error("could not store the answer in the cache (%s)", type(e).__name__)
 
     def _answer(self, question: str, user: AppUser, thread: str, started: float) -> Answer:
         if not question:
@@ -114,7 +203,7 @@ class Assistant:
             usage_by_step=a.usage.by_step, models=self._models(),
             checks=[{"name": c.name, "severity": c.severity, "detail": c.detail,
                      "passed": c.passed} for c in a.checks],
-            warnings=a.warnings, fault_injected=a.fault_injected,
+            warnings=a.warnings, fault_injected=a.fault_injected, cache_hit=a.cache_hit,
             attempts=[AttemptRecord(i, t.item, t.source, t.sql, t.status, t.error_class,
                                     t.error_text, t.latency_ms)
                       for i, t in enumerate(a.attempts, start=1)])

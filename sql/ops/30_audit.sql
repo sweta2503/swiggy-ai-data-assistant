@@ -41,3 +41,6 @@ CREATE TABLE IF NOT EXISTS ops.assistant_attempts (
     PRIMARY KEY (run_id, attempt_no)
 );
 CREATE INDEX IF NOT EXISTS assistant_attempts_class_idx ON ops.assistant_attempts (error_class);
+
+-- Answers served from ops.answer_cache are logged like any other, flagged here.
+ALTER TABLE ops.assistant_runs ADD COLUMN IF NOT EXISTS cache_hit boolean NOT NULL DEFAULT false;
