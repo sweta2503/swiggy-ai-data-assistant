@@ -1,0 +1,13 @@
+# Approvals for source schema changes. Edit this file ONLY after you have looked at the alert
+# (`make psql`, then: SELECT * FROM ops.schema_alerts WHERE status = 'open';).
+#
+# renames:  the source renamed a column. Format:  <file type>: {<name in the file>: <name we expect>}
+#           Example:  orders: {order_amount: order_value}
+# ignore_new_columns:  the source added a column we do not load yet. Listing it means "I have seen
+#           it and accept that its values are NOT kept". Adding it to the warehouse is a schema
+#           change that needs new bronze, silver and gold columns, which is a separate piece of work.
+#           Example:  orders: [tip_amount]
+#
+# After editing, run `make bronze`: quarantined files that now match are loaded.
+renames: {}
+ignore_new_columns: {}

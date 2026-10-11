@@ -67,9 +67,11 @@ class Runtime:
         if self.health_check is not None:
             return self.health_check()
         from swiggy_ai.dq.runner import assert_gold_healthy
+        from swiggy_ai.pipeline.schema_drift import alert_warning
         with self.open_service() as conn:
             health = assert_gold_healthy(conn)
-        return [] if health else [health.message]
+            drift = alert_warning(conn)
+        return ([] if health else [health.message]) + drift
 
     @property
     def allowed_views(self) -> set[str]:

@@ -53,7 +53,7 @@ def csv_rows(pattern: str, root: Path) -> int:
 def test_row_counts_match_the_files(conn, raw):
     r = bl.load_directory(conn, raw)
     meta = json.loads((raw / "_meta.json").read_text())
-    assert r.rows_rejected == 0 and r.files_rejected == 0
+    assert r.rows_rejected == 0 and r.files_quarantined == 0
     assert r.rows_loaded["orders"] == meta["order_rows_in_files"]  # duplicates are kept in bronze
     assert r.rows_loaded["order_items"] == meta["item_rows_in_files"]
     assert r.rows_loaded["payments"] == csv_rows("payments/*.csv", raw)
@@ -159,20 +159,20 @@ def test_bad_rows_go_to_reject_table(conn, tmp_path):
     assert ledger[0] == 2
 
 
-def test_wrong_header_rejects_whole_file_and_is_not_retried(conn, tmp_path):
+def test_wrong_header_is_quarantined_not_loaded_and_not_alerted_twice(conn, tmp_path):
     (tmp_path / "payments").mkdir()
     (tmp_path / "payments" / "payments_2026-01-01.csv").write_text(
         "payment_id,order_id,payment_ts,method,status,total\nP1,O1,t,upi,success,1\n")
     first = bl.load_directory(conn, tmp_path)
-    assert first.files_rejected == 1 and first.total_rows == 0
-    assert count(conn, "SELECT count(*) FROM bronze.payments"
-                 " WHERE _source_file = 'payments/payments_2026-01-01.csv'") == 0
-    assert conn.execute("SELECT status FROM bronze.load_ledger WHERE source_file ="
-                        " 'payments/payments_2026-01-01.csv'").fetchone()[0] == "rejected_header"
-    assert count(conn, "SELECT count(*) FROM bronze.rejected_files_rows WHERE row_number IS NULL"
-                 " AND source_file = 'payments/payments_2026-01-01.csv'") == 1
-    again = bl.load_directory(conn, tmp_path)
-    assert again.files_skipped == 1 and again.files_rejected == 0
+    assert first.files_quarantined == 1 and first.total_rows == 0
+    assert count(conn, "SELECT count(*) FROM bronze.payments") == 0
+    assert count(conn, "SELECT count(*) FROM bronze.load_ledger") == 0  # not 'loaded', not skipped
+    assert count(conn, "SELECT count(*) FROM bronze.quarantine_rows") == 1
+    assert count(conn, "SELECT count(*) FROM ops.schema_alerts WHERE status = 'open'") == 1
+    again = bl.load_directory(conn, tmp_path)  # still quarantined, but no second alert or copy
+    assert again.files_quarantined == 1 and again.total_rows == 0
+    assert count(conn, "SELECT count(*) FROM bronze.quarantine_rows") == 1
+    assert count(conn, "SELECT count(*) FROM ops.schema_alerts") == 1
 
 
 def test_multiline_csv_field_is_one_record(conn, tmp_path):

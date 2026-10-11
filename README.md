@@ -30,10 +30,12 @@ make seed-users    # 14. demo users: admin, Bengaluru manager, Mumbai manager (k
 make security-demo # 15. log in as the assistant and watch each attempt to break out fail
 make report        # 16. how the assistant has been doing (from the audit trail)
 make eval          # 17. score the assistant on 30 golden questions (calls OpenAI, costs a little)
+make drift-demo    # 18. a source renames a column: watch it get quarantined, then approved
+make refresh-catalog # 19. update catalog.yml from the database after a view changes
 ```
 
 ## Make targets
-Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-10 report eval eval-check eval-gate eval-compare ci`.
+Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-11 drift-demo refresh-catalog report eval eval-check eval-gate eval-compare ci`.
 
 ## Troubleshooting
 - **`role "assistant_ro" does not exist`**: another Postgres is answering. This project
@@ -86,6 +88,13 @@ README states an accuracy figure on purpose: run `make eval` and read your own r
 `make eval-compare` (what changed since the last run), `make eval-gate` (pass/fail against the marks
 you set in `eval/thresholds.yml`; it refuses to pass while that file is empty). Demo fault
 injection is always off during an evaluation. See `notes/chapter_10.md`.
+
+## Schema drift
+If a source file's columns change (a rename, a new or missing column), the loader parks the file in
+`bronze.quarantine_files`, raises an alert in `ops.schema_alerts` and loads nothing from it. You approve
+a change by editing `src/swiggy_ai/pipeline/column_aliases.yml` and running `make bronze`.
+`make drift-demo` shows the whole story without touching your data; `make refresh-catalog` brings
+`semantic/catalog.yml` back in line with the database. See `notes/chapter_11.md`.
 
 ## Cost reporting
 Add the price of each model in `.env` (`PRICE_INPUT_PER_1M`, `PRICE_OUTPUT_PER_1M`, US dollars per

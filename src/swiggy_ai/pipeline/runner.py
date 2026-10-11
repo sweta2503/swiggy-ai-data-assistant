@@ -13,3 +13,7 @@ def run_sql_dir(conn: psycopg.Connection, folder: str) -> list[str]:
         conn.execute(path.read_text())
         ran.append(path.name)
     return ran
+
+
+def run_sql_file(conn: psycopg.Connection, folder: str, name: str) -> None:
+    conn.execute((SQL_ROOT / folder / name).read_text())
