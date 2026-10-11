@@ -10,3 +10,4 @@ faker==40.41.0             # realistic Indian names and addresses
 numpy==2.4.6               # fast, seeded random numbers for the generator
 pyyaml==6.0.3             # reads the semantic layer YAML files
 sqlglot==30.21.0            # parses SQL (validates metric expressions now; the query guard later)
+langgraph==1.2.14          # the agent graph: nodes, conditional edges, per-conversation memory

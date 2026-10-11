@@ -1,0 +1,22 @@
+# Demo only. With DEMO_FAULT_INJECTION=true the FIRST query of a run is replaced by one of these
+# naive mistakes, so the self-healing loop is easy to show on camera. It is off by default, it is
+# always flagged in the answer, the logs and the UI, and `make eval` never turns it on.
+#
+# Each fault tries to break the query the model really wrote (`find` -> `replace`). If the pattern
+# is not in that query, `fallback_sql` is used instead.
+faults:
+  - name: wrong_column
+    why: the first draft used a column that does not exist (total_amount)
+    find: '\b(order_value|net_revenue)\b'
+    replace: total_amount
+    fallback_sql: "SELECT SUM(total_amount) AS revenue FROM analytics.orders WHERE status = 'delivered'"
+
+  - name: wrong_date_function
+    why: the first draft used a SQL Server date function that PostgreSQL does not have
+    find: '\(SELECT today FROM analytics\.data_as_of\)'
+    replace: "GETDATE()"
+    fallback_sql: "SELECT COUNT(*) AS orders FROM analytics.orders WHERE order_date >= DATEADD(day, -7, CURRENT_DATE)"
+
+  - name: ungrouped_column
+    why: the first draft selected a column that is not in the GROUP BY
+    fallback_sql: "SELECT city, restaurant_name, SUM(net_revenue) AS net_revenue FROM analytics.orders GROUP BY city"

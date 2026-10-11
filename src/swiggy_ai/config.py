@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     max_plan_cost: float = 100_000
 
     demo_fault_injection: bool = False
+    demo_fault_name: str = ""  # which entry of eval/fault_injection.yml to use (default: first)
+
+    llm_sanity_check: bool = False  # optional extra model read of results (warnings only)
+    context_tokens: int = Field(default=2200, ge=300)  # budget for the semantic context
 
     # Empty string in .env means "not set", so these stay optional.
     price_input_per_1m: float | None = None
