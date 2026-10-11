@@ -34,10 +34,13 @@ make drift-demo    # 18. a source renames a column: watch it get quarantined, th
 make refresh-catalog # 19. update catalog.yml from the database after a view changes
 make daily         # 20. bronze -> silver -> gold -> dq -> catalog -> publish, in one go
 make scheduler     # 21. run `make daily` every day at 06:00 India time
+make ui            # 22. the chat page: http://localhost:8501
+make api           # 23. the HTTP API: http://127.0.0.1:8000/docs
+make ask Q="How many orders did we get last week?" WHO=admin   # 24. from the terminal
 ```
 
 ## Make targets
-Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-12 daily scheduler cache-clear drift-demo refresh-catalog report eval eval-check eval-gate eval-compare ci`.
+Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-13 api ui ask daily scheduler cache-clear drift-demo refresh-catalog report eval eval-check eval-gate eval-compare ci`.
 
 ## Troubleshooting
 - **`role "assistant_ro" does not exist`**: another Postgres is answering. This project
@@ -97,6 +100,16 @@ If a source file's columns change (a rename, a new or missing column), the loade
 a change by editing `src/swiggy_ai/pipeline/column_aliases.yml` and running `make bronze`.
 `make drift-demo` shows the whole story without touching your data; `make refresh-catalog` brings
 `semantic/catalog.yml` back in line with the database. See `notes/chapter_11.md`.
+
+## Using it
+- **Chat page:** `make ui`. Pick who is asking (Admin, Bengaluru manager, Mumbai manager) and ask.
+  Under each answer, *What happened* lists every attempt, failure and repair in plain words.
+- **API:** `make api`, then
+  `curl -X POST localhost:8000/ask -H "X-API-Key: <your key>" -H "content-type: application/json" -d '{"question": "How many orders last week?"}'`
+  (add `?fresh=true` to skip the cache). `GET /health` needs no key. Keys come from `.env`
+  (`API_KEY`, `API_KEY_BENGALURU`, `API_KEY_MUMBAI`) via `make seed-users`; set your own first.
+- **Terminal:** `python -m swiggy_ai.cli ask "..." --user admin` (`--json`, `--fresh`; `chat` for a
+  conversation; `users` lists the ids). See `notes/chapter_13.md`.
 
 ## Daily run, scheduling and the answer cache
 `make daily` refreshes everything and publishes a new *data version* only if no blocking data-quality

@@ -44,3 +44,5 @@ def setup_logging(level: int = logging.INFO) -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level)
+    for noisy in ("httpx", "httpx2", "httpcore", "openai"):  # one INFO line per HTTP request
+        logging.getLogger(noisy).setLevel(logging.WARNING)

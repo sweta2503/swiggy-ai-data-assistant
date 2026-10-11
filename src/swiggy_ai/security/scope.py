@@ -90,6 +90,20 @@ def lookup_user(conn: psycopg.Connection, api_key: str | None) -> AppUser | None
     return AppUser(*row) if row else None
 
 
+def list_users(conn: psycopg.Connection) -> list[AppUser]:
+    rows = conn.execute("SELECT user_id, display_name, allowed_cities FROM ops.app_users"
+                        " WHERE is_active ORDER BY user_id").fetchall()
+    return [AppUser(*r) for r in rows]
+
+
+def get_user(conn: psycopg.Connection, user_id: str) -> AppUser | None:
+    """By id, with no key. For the local command line and the demo UI only: whoever can run
+    those already holds the database password. The API always goes through lookup_user."""
+    row = conn.execute("SELECT user_id, display_name, allowed_cities FROM ops.app_users"
+                       " WHERE user_id = %s AND is_active", (user_id,)).fetchone()
+    return AppUser(*row) if row else None
+
+
 def assistant_connection(scope: str) -> psycopg.Connection:
     """A login as assistant_ro that has declared its city scope. The role can only read the
     analytics views; the scope decides which cities' rows those views return."""

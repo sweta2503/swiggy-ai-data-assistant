@@ -26,6 +26,7 @@ from swiggy_ai.ops import cache as answer_cache
 from swiggy_ai.ops.audit import AttemptRecord, RunRecord, ensure_audit_tables, record_run
 from swiggy_ai.ops.cost import estimate_cost
 from swiggy_ai.security.scope import AppUser
+from swiggy_ai.semantic.loader import load_semantic
 
 log = logging.getLogger("assistant")
 
@@ -74,17 +75,43 @@ class Assistant:
     """`cache=True` serves repeated first questions from ops.answer_cache. It is off by default so
     that tests and the evaluation always measure the real thing; the interfaces turn it on."""
 
-    def __init__(self, runtime: Runtime | None = None, audit: bool = True, cache: bool = False):
+    def __init__(self, runtime: Runtime | None = None, audit: bool = True, cache: bool = False,
+                 reload_catalog: bool = False):
         self.rt = runtime or Runtime.create()
         self.graph = build_graph(self.rt)
         self.audit = audit
         self.cache = cache
-        if audit or cache:
+        self.reload_catalog = reload_catalog
+        self._seen_version: int | None = None
+        if audit or cache or reload_catalog:
             with self.rt.open_service() as conn:
                 if audit:
                     ensure_audit_tables(conn)
-                if cache:
+                if cache or reload_catalog:
                     answer_cache.ensure_cache_tables(conn)
+
+    @classmethod
+    def for_app(cls, runtime: Runtime | None = None) -> "Assistant":
+        """The assistant as the API, the UI and the command line run it: audited, cached when
+        ANSWER_CACHE is on, and reloading the catalog whenever `make daily` publishes new data."""
+        rt = runtime or Runtime.create()
+        return cls(rt, audit=True, cache=rt.settings.answer_cache, reload_catalog=True)
+
+    def _reload_if_new_data(self) -> None:
+        """A long-running process keeps the catalog it loaded at start. When the data version moves
+        (a daily run published, and may have rewritten catalog.yml), load it again."""
+        if not self.reload_catalog:
+            return
+        try:
+            with self.rt.open_service() as conn:
+                version = answer_cache.get_data_version(conn)
+            if self._seen_version is not None and version != self._seen_version:
+                self.rt.semantic = load_semantic()
+                log.info("data version %s -> %s: catalog reloaded", self._seen_version, version)
+            self._seen_version = version
+        except Exception as e:  # noqa: BLE001 - keep the catalog we have rather than fail
+            log.error("could not reload the catalog (%s); keeping the current one",
+                      type(e).__name__)
 
     def ask(self, question: str, user: AppUser, thread_id: str | None = None,
             fresh: bool = False) -> Answer:
@@ -94,6 +121,7 @@ class Assistant:
         thread = thread_id or uuid.uuid4().hex
         question = (question or "").strip()
         started = self.rt.clock()
+        self._reload_if_new_data()
         plan = self._cache_plan(question, user, thread)
         answer = None if (plan is None or fresh) else self._cache_get(plan, thread, started)
         if answer is None:

@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 test-09 test-10 test-11 test-12 daily scheduler cache-clear drift-demo refresh-catalog eval eval-check eval-gate eval-compare ci
+.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 test-09 test-10 test-11 test-12 test-13 api ui ask daily scheduler cache-clear drift-demo refresh-catalog eval eval-check eval-gate eval-compare ci
 PY := .venv/bin/python
 export PYTHONPATH := src:.
 
@@ -83,6 +83,15 @@ drift-demo:  ## Write a changed-schema batch to data/drift and watch it get quar
 refresh-catalog:  ## Update catalog.yml from the database (columns, types) and list what needs a description
 	$(PY) -m swiggy_ai.semantic --refresh
 
+api:  ## Start the HTTP API on http://127.0.0.1:8000 (docs at /docs)
+	$(PY) -m uvicorn swiggy_ai.api.app:app --host 127.0.0.1 --port 8000
+
+ui:  ## Start the chat page on http://localhost:8501
+	.venv/bin/streamlit run src/swiggy_ai/ui/app.py
+
+ask:  ## Ask from the terminal:  make ask Q="How many orders last week?" WHO=admin
+	$(PY) -m swiggy_ai.cli ask "$(Q)" --user $(or $(WHO),admin)
+
 daily:  ## bronze -> silver -> gold -> dq, then (if healthy) refresh the catalog and publish a data version
 	$(PY) -m swiggy_ai.pipeline.daily
 
@@ -148,6 +157,9 @@ test-11:  ## Phase 11 tests
 
 test-12:  ## Phase 12 tests
 	$(PY) -m pytest tests/phase12 -q
+
+test-13:  ## Phase 13 tests
+	$(PY) -m pytest tests/phase13 -q
 
 test:  ## All tests
 	$(PY) -m pytest -q
