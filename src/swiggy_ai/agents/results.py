@@ -24,7 +24,18 @@ def make_record_result() -> Callable[[AgentState], dict]:
             checks=state.checks, assumptions=state.assumptions if ok else [],
             healed=max(extra, 0) if ok else 0,
             failure="" if ok else failure_text(state))
-        update = {"results": [*state.results, step], "item": state.item + 1}
+        results, item = [*state.results, step], state.item + 1
+        # A step that needs the answer of a failed step cannot be answered either: say so, skip it.
+        failed = {r.id for r in results if not r.ok}
+        while item < len(state.plan) and set(state.plan[item].depends_on) & failed:
+            skipped = state.plan[item]
+            blockers = ", ".join(str(d) for d in skipped.depends_on if d in failed)
+            results.append(StepResult(id=skipped.id, question=skipped.question, ok=False,
+                                      failure=f"skipped because step {blockers} could not be "
+                                              "answered"))
+            failed.add(skipped.id)
+            item += 1
+        update = {"results": results, "item": item}
         if ok and step.healed:
             update["warnings"] = [*state.warnings, f"The query failed {step.healed} time(s) and "
                                   "was repaired automatically."]

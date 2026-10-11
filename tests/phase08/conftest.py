@@ -4,6 +4,7 @@ import time
 import pytest
 
 from swiggy_ai.agents.graph import build_graph
+from swiggy_ai.agents.router import RouteDecision
 from swiggy_ai.agents.runtime import Runtime
 from swiggy_ai.agents.state import AgentState, fresh_turn
 from swiggy_ai.config import get_settings
@@ -39,6 +40,9 @@ class Harness:
 
     def __init__(self, semantic, **settings):
         self.llm = FakeLLM()
+        # Unless a test says otherwise, every question is a plain one-query question.
+        self.llm.default(RouteDecision, lambda text: RouteDecision(
+            route="simple", question=text.split("Newest message: ", 1)[1].strip()))
         base = get_settings().model_copy(update={"demo_fault_injection": False, **settings})
         self.rt = Runtime(settings=base, semantic=semantic, llm=self.llm,
                           open_assistant=assistant_connection,

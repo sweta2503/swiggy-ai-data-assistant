@@ -23,7 +23,7 @@ FAN_OUT_TOTAL = ("SELECT SUM(o.net_revenue) AS net_revenue FROM analytics.orders
                  "JOIN analytics.order_items i ON i.order_id = o.order_id")
 
 
-# --- detecting a fan-out in the SQL --------------------------------------------------------
+# --- detecting a fan-out in the SQL -----------------------------------------------------------
 @pytest.mark.parametrize("sql", [
     FAN_OUT_TOTAL,
     ORDERS_ONLY,
@@ -81,7 +81,7 @@ def test_no_fair_control_exists_when_items_are_filtered(semantic):
     assert c.control_sql is None  # an average has no simple control
 
 
-# --- clock and period ----------------------------------------------------------------------
+# --- clock and period -------------------------------------------------------------------------
 @pytest.mark.parametrize("question, period", [
     ("How many orders did we get last week?", "last_week"),
     ("revenue for the previous month", "last_month"),
@@ -122,7 +122,7 @@ def test_a_correctly_anchored_query_passes(semantic):
                                   semantic) == []
 
 
-# --- values --------------------------------------------------------------------------------
+# --- values -----------------------------------------------------------------------------------
 def test_empty_null_and_capped_results_are_noticed():
     assert names(check_values(["n"], [], False, 500)) == {"empty_result"}
     assert "all_null_result" in names(check_values(["n"], [[None]], False, 500))
@@ -138,7 +138,7 @@ def test_impossible_values_are_noticed():
     assert check_values(["discount_total"], [[-5.0]], False, 500) == []  # not a revenue figure
 
 
-# --- the whole loop ------------------------------------------------------------------------
+# --- the whole loop ---------------------------------------------------------------------------
 pytestmark_db = pytest.mark.db
 
 
@@ -160,7 +160,8 @@ def test_a_fan_out_is_caught_by_the_control_total_and_repaired(harness, service)
     assert s.status == "answered" and s.results[0].rows == [[truth]]
     assert [(a.source, a.status, a.error_class) for a in s.attempts] == [
         ("writer", "rejected", "result_check"), ("repair", "ok", "")]
-    retry = h.llm.calls[1].user_input  # the writer was told exactly what was wrong, with numbers
+    # the writer was told exactly what was wrong, with the numbers
+    retry = h.llm.calls_of(SQLDraft)[1].user_input
     assert "repeated once per item line" in retry and f"{truth:,.2f}" in retry
     assert "SUM(o.net_revenue)" in retry  # and shown its own previous query
     assert any("repaired automatically" in w for w in s.warnings)
@@ -175,7 +176,7 @@ def test_the_inflation_is_real_and_the_check_measured_it(harness, service):
     h = harness()
     h.llm.say(SQLDraft, SQLDraft(sql=FAN_OUT_TOTAL), SQLDraft(sql=CORRECT)).say(Narration, says)
     h.ask("net revenue")
-    assert f"{inflated:,.2f}" in h.llm.calls[1].user_input
+    assert f"{inflated:,.2f}" in h.llm.calls_of(SQLDraft)[1].user_input
 
 
 @pytest.mark.db
@@ -194,7 +195,8 @@ def test_the_check_respects_the_users_city_scope(harness, service):
     h.llm.say(SQLDraft, SQLDraft(sql=FAN_OUT_TOTAL), SQLDraft(sql=CORRECT)).say(Narration, says)
     s = h.ask("net revenue", scope="Pune")
     assert s.results[0].rows == [[pune]]
-    assert f"{pune:,.2f}" in h.llm.calls[1].user_input  # the control was Pune's, not everyone's
+    # the control total was Pune's, not everyone's
+    assert f"{pune:,.2f}" in h.llm.calls_of(SQLDraft)[1].user_input
 
 
 @pytest.mark.db
@@ -260,7 +262,7 @@ def test_the_wall_clock_is_repaired_to_the_data_anchor(harness):
     s = h.ask("How many orders did we get yesterday?")
     assert "data_as_of" in s.final_sql and "CURRENT_DATE" not in s.final_sql.upper()
     assert s.results[0].rows[0][0] > 0  # the clock version would have returned nothing
-    assert "wall clock" in h.llm.calls[1].user_input
+    assert "wall clock" in h.llm.calls_of(SQLDraft)[1].user_input
 
 
 @pytest.mark.db
@@ -272,7 +274,7 @@ def test_a_hard_coded_period_is_repaired_to_a_relative_one(harness):
     h = harness()
     h.llm.say(SQLDraft, SQLDraft(sql=literal), SQLDraft(sql=last_week)).say(Narration, says)
     s = h.ask("How many orders did we get last week?")
-    assert "date_trunc('week'" in h.llm.calls[1].user_input
+    assert "date_trunc('week'" in h.llm.calls_of(SQLDraft)[1].user_input
     assert s.status == "answered" and "data_as_of" in s.final_sql
 
 
@@ -296,7 +298,7 @@ def test_an_empty_result_is_not_an_error(harness):
     assert "No data matched" in h.llm.calls[-1].user_input or "0 rows" in h.llm.calls[-1].user_input
 
 
-# --- the optional model read ---------------------------------------------------------------
+# --- the optional model read ------------------------------------------------------------------
 @pytest.mark.db
 def test_the_model_read_is_off_by_default(harness):
     h = harness()

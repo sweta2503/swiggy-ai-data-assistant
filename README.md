@@ -4,7 +4,7 @@ Ask business questions in plain English. A multi-agent system answers from a rea
 data warehouse, shows the SQL, fixes its own failed queries, catches silently wrong
 results, and never exposes PII. All data is generated sample data.
 
-> Status: **Phases 0-7 done** (setup, synthetic data, bronze, silver, gold, data quality, semantic layer, security). The README grows with each chapter.
+> Status: **Phases 0-8 done** (setup, synthetic data, bronze, silver, gold, data quality, semantic layer, security, the multi-agent assistant). The README grows with each chapter.
 
 ## Prerequisites
 - Docker Desktop (running)
@@ -31,7 +31,7 @@ make security-demo # 15. log in as the assistant and watch each attempt to break
 ```
 
 ## Make targets
-Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-07 ci`.
+Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-08 ci`.
 
 ## Troubleshooting
 - **`role "assistant_ro" does not exist`**: another Postgres is answering. This project
@@ -58,3 +58,19 @@ views, cannot write, runs under an 8-second timeout, and sees only the cities it
 allowed (row-level security that fails closed). Set real values for `API_KEY`,
 `API_KEY_BENGALURU` and `API_KEY_MUMBAI` in `.env` before `make seed-users`. Details and the
 honest limits are in `notes/chapter_07.md`.
+
+## The assistant
+`src/swiggy_ai/agents/` is a LangGraph graph: router, clarifier, planner, schema agent, SQL writer,
+guard, cost check, executor, healer, result checker, narrator and synthesizer. See
+`notes/chapter_08.md` for the diagram and what each part guarantees. Set `OPENAI_API_KEY` and the
+`OPENAI_MODEL*` names in `.env` (small, cheap models are enough); `make check` makes one tiny call to
+confirm. From Python:
+
+```python
+from swiggy_ai.agents.service import Assistant
+from swiggy_ai.security.scope import AppUser
+
+answer = Assistant().ask("Why did refunds increase in Mumbai last month?",
+                         AppUser("me", "Me", "ALL"))
+print(answer.answer, answer.sql, answer.warnings)
+```

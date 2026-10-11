@@ -29,25 +29,22 @@ def lacks_date_filter(sql: str) -> bool:
     tree = sqlglot.parse_one(sql, read="postgres")
     if not (referenced_views(sql) & TIME_SERIES_VIEWS):
         return False
-    scopes = [*tree.find_all(exp.Where), *(j.args["on"] for j in tree.find_all(exp.Join)
-                                           if j.args.get("on") is not None)]
+    # Any comparison of a date column with a value counts, wherever it is written: in WHERE, in a
+    # JOIN condition, or inside FILTER (WHERE ...) / CASE for a period-over-period comparison.
     comparisons = (exp.GT, exp.GTE, exp.LT, exp.LTE, exp.EQ, exp.NEQ, exp.Between, exp.In)
-    for scope in scopes:
-        for cmp_ in scope.find_all(*comparisons):
-            columns = list(cmp_.find_all(exp.Column))
-            on_dates = [c for c in columns if c.name in DATE_COLUMNS]
-            # a filter compares a date column with a value or expression; comparing it with
-            # another column (a join key) selects nothing
-            if on_dates and len(columns) == len(on_dates) and not _compares_two_columns(cmp_):
-                return False
-            if on_dates and not _compares_two_columns(cmp_):
-                return False
+    for cmp_ in tree.find_all(*comparisons):
+        on_dates = [c for c in cmp_.find_all(exp.Column) if c.name in DATE_COLUMNS]
+        if on_dates and not _compares_two_columns(cmp_):
+            return False
     return True
 
 
 def _compares_two_columns(cmp_: exp.Expression) -> bool:
+    """True for a join key such as calendar.date = orders.order_date (two date columns).
+    Comparing a date column with a computed bound (a CTE's last_month_start) is a filter."""
     left, right = cmp_.args.get("this"), cmp_.args.get("expression")
-    return isinstance(left, exp.Column) and isinstance(right, exp.Column)
+    return (isinstance(left, exp.Column) and isinstance(right, exp.Column)
+            and left.name in DATE_COLUMNS and right.name in DATE_COLUMNS)
 
 
 def make_cost_check(rt: Runtime) -> Callable[[AgentState], dict]:

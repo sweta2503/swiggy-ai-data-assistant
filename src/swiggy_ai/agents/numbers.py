@@ -25,12 +25,13 @@ def parse_numbers(text: str) -> list[tuple[str, float, bool, int]]:
     return out
 
 
-def allowed_numbers(columns: list[str], rows: list[list[Any]],
-                    context_text: str = "") -> set[float]:
+def allowed_numbers(columns: list[str], rows: list[list[Any]], context_text: str = "",
+                    extra: tuple[float, ...] = ()) -> set[float]:
     """Every figure the answer may use: cell values, row counts, ranks, and digits that appear in
     the question or in text cells (dates, ids, names)."""
     allowed: set[float] = {float(i) for i in range(0, len(rows) + 2)}
     allowed.add(float(len(columns)))
+    allowed.update(float(x) for x in extra)
     for row in rows:
         for cell in row:
             if isinstance(cell, bool):

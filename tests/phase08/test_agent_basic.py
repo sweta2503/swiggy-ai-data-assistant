@@ -40,7 +40,8 @@ def test_a_question_goes_all_the_way_to_a_checked_answer(harness, service):
     assert s.results[0].rows == [[truth]]  # the number came from the database, not the model
     assert s.final_sql.endswith("LIMIT 500")  # the guard added a row cap
     assert [a.status for a in s.attempts] == ["ok"]
-    assert s.usage.calls == 2 and s.usage.tokens_in == 200  # one writer call, one narrator call
+    assert s.usage.calls == 3 and s.usage.tokens_in == 300  # router, SQL writer, narrator
+    assert set(s.usage.by_step) == {"router", "sql_writer", "narrator"}
     assert s.warnings == []
 
 
@@ -48,19 +49,20 @@ def test_models_are_used_by_tier_cheap_for_wording_stronger_for_sql(harness):
     h = harness()
     h.llm.say(SQLDraft, SQLDraft(sql=NET)).say(Narration, says_revenue(63748004.83))
     h.ask("net revenue")
-    assert {c.schema: c.tier for c in h.llm.calls} == {"SQLDraft": "medium", "Narration": "low"}
+    assert {c.schema: c.tier for c in h.llm.calls} == {"RouteDecision": "low",
+                                                       "SQLDraft": "medium", "Narration": "low"}
 
 
 def test_the_writer_is_given_the_semantic_context_for_this_question(harness):
     h = harness()
     h.llm.say(SQLDraft, SQLDraft(sql=NET_LAST_MONTH)).say(Narration, says_nothing_numeric)
     h.ask("What was our net revenue last month in Pune?")
-    prompt = h.llm.calls[0].user_input
+    prompt = h.llm.calls_of(SQLDraft)[0].user_input
     assert "SUM(order_value - discount) FILTER (WHERE status = 'delivered')" in prompt
     assert "analytics.data_as_of" in prompt and "Asia/Kolkata" in prompt
     assert "Do not:" in prompt
     assert "gold." not in prompt and "silver." not in prompt  # it never hears of the raw layers
-    assert "CURRENT_DATE" in h.llm.calls[0].instructions  # and is told not to use it
+    assert "CURRENT_DATE" in h.llm.calls_of(SQLDraft)[0].instructions  # and is told not to use it
 
 
 def test_the_numbers_in_the_answer_must_come_from_the_result(harness):
@@ -174,8 +176,8 @@ def test_an_expensive_plan_gets_one_chance_to_be_rewritten_then_a_warning(harnes
         Narration, says_revenue(63748004.83))
     s = h.ask("net revenue")
     assert h.llm.count(SQLDraft) == 2  # asked exactly once more, not in a loop
-    assert "estimated cost" in h.llm.calls[1].user_input  # the model was told why
-    assert "Do NOT change what the question asks" in h.llm.calls[1].user_input
+    assert "estimated cost" in h.llm.calls_of(SQLDraft)[1].user_input  # the model was told why
+    assert "Do NOT change what the question asks" in h.llm.calls_of(SQLDraft)[1].user_input
     assert [a.error_class for a in s.attempts if a.status == "rejected"] == ["cost"]
     assert s.status == "answered" and any("expensive" in w for w in s.warnings)
 
@@ -185,7 +187,7 @@ def test_a_period_in_the_question_but_not_in_the_query_gets_one_rewrite(harness)
     h.llm.say(SQLDraft, SQLDraft(sql=NET), SQLDraft(sql=NET_LAST_MONTH)).say(
         Narration, says_nothing_numeric)
     s = h.ask("What was our net revenue last month?")
-    assert h.llm.count(SQLDraft) == 2 and "no date filter" in h.llm.calls[1].user_input
+    assert h.llm.count(SQLDraft) == 2 and "no date filter" in h.llm.calls_of(SQLDraft)[1].user_input
     assert s.status == "answered" and "date_trunc('month'" in s.final_sql.lower()
 
 
@@ -253,6 +255,14 @@ def test_a_failing_data_quality_check_is_shown_beside_the_answer(harness):
      " WHERE c.is_weekend", True),
     ("SELECT count(*) FROM analytics.orders o JOIN analytics.calendar c ON c.date = o.order_date"
      " AND c.month_name = 'March' WHERE o.order_date >= '2026-03-01'", False),
+    ("SELECT count(*) FILTER (WHERE order_date >= '2026-03-01') FROM analytics.orders", False),
+    ("SELECT sum(CASE WHEN order_date >= '2026-03-01' THEN 1 ELSE 0 END) FROM analytics.orders",
+     False),
+    ("WITH b AS (SELECT date_trunc('month', today) AS m FROM analytics.data_as_of)"
+     " SELECT count(*) FROM analytics.orders o, b WHERE o.order_date >= b.m", False),
+    ("WITH b AS (SELECT date_trunc('month', today) AS m FROM analytics.data_as_of)"
+     " SELECT count(*) FILTER (WHERE r.refund_date >= b.m) FROM analytics.refunds r CROSS JOIN b",
+     False),
     ("SELECT count(*) FROM analytics.restaurants", False),  # small, not a dated view
     ("SELECT today FROM analytics.data_as_of", False),
 ])

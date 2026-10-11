@@ -22,6 +22,7 @@ class Call:
 class FakeLLM:
     def __init__(self):
         self.script: dict[str, deque] = defaultdict(deque)
+        self.defaults: dict[str, object] = {}  # used when a schema has no scripted reply left
         self.calls: list[Call] = []
 
     def say(self, schema, *replies):
@@ -29,16 +30,26 @@ class FakeLLM:
             self.script[schema.__name__].append(r)
         return self
 
+    def default(self, schema, reply):
+        self.defaults[schema.__name__] = reply
+        return self
+
     def __call__(self, *, instructions, user_input, schema, tier="medium", temperature=0.0,
                  retries=3):
         name = schema.__name__
         self.calls.append(Call(name, tier, instructions, user_input))
         queue = self.script[name]
-        if not queue:
+        if queue:
+            reply = queue.popleft()
+        elif name in self.defaults:
+            reply = self.defaults[name]
+        else:
             raise AssertionError(f"the test did not script a reply for {name}")
-        reply = queue.popleft()
         parsed = reply(user_input) if callable(reply) else reply
         return LLMResult(parsed=parsed, usage=Usage(input_tokens=100, output_tokens=20))
+
+    def calls_of(self, schema) -> list[Call]:
+        return [c for c in self.calls if c.schema == schema.__name__]
 
     def count(self, schema) -> int:
         return sum(1 for c in self.calls if c.schema == schema.__name__)
