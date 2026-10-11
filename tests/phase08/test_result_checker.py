@@ -289,11 +289,12 @@ def test_warnings_reach_the_user_for_odd_but_legitimate_results(harness):
 
 @pytest.mark.db
 def test_an_empty_result_is_not_an_error(harness):
-    sql = "SELECT count(*) AS n FROM analytics.orders WHERE city = 'Atlantis' HAVING count(*) > 0"
+    # a valid filter that happens to match nothing (an unknown city would be sent back for repair)
+    sql = "SELECT count(*) AS n FROM analytics.orders WHERE order_value < 0 HAVING count(*) > 0"
     h = harness()
     h.llm.say(SQLDraft, SQLDraft(sql=sql)).say(Narration, lambda ui: Narration(
-        answer="No data matched; Atlantis is not one of our cities."))
-    s = h.ask("orders in Atlantis")
+        answer="No data matched; no order has a negative value."))
+    s = h.ask("orders with a negative value")
     assert s.status == "answered" and s.results[0].rows == []
     assert "No data matched" in h.llm.calls[-1].user_input or "0 rows" in h.llm.calls[-1].user_input
 

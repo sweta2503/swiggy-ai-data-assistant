@@ -29,10 +29,11 @@ make security      # 13. roles, grants, row-level security, session limits (then
 make seed-users    # 14. demo users: admin, Bengaluru manager, Mumbai manager (keys from .env)
 make security-demo # 15. log in as the assistant and watch each attempt to break out fail
 make report        # 16. how the assistant has been doing (from the audit trail)
+make eval          # 17. score the assistant on 30 golden questions (calls OpenAI, costs a little)
 ```
 
 ## Make targets
-Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-09 report ci`.
+Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-10 report eval eval-check eval-gate eval-compare ci`.
 
 ## Troubleshooting
 - **`role "assistant_ro" does not exist`**: another Postgres is answering. This project
@@ -75,6 +76,16 @@ answer = Assistant().ask("Why did refunds increase in Mumbai last month?",
                          AppUser("me", "Me", "ALL"))
 print(answer.answer, answer.sql, answer.warnings)
 ```
+
+## Evaluation
+`make eval` asks the assistant the 30 questions in `eval/golden.yml` and scores each answer against
+a hand-written reference query (`eval/reference_sql/`, written against the gold tables, not the views
+the assistant reads). It writes `eval/results/<time>.json` and `.md` (not committed). Nothing in this
+README states an accuracy figure on purpose: run `make eval` and read your own report. Related:
+`make eval-check` (validates the golden file and every reference query; no model call),
+`make eval-compare` (what changed since the last run), `make eval-gate` (pass/fail against the marks
+you set in `eval/thresholds.yml`; it refuses to pass while that file is empty). Demo fault
+injection is always off during an evaluation. See `notes/chapter_10.md`.
 
 ## Cost reporting
 Add the price of each model in `.env` (`PRICE_INPUT_PER_1M`, `PRICE_OUTPUT_PER_1M`, US dollars per

@@ -1,0 +1,2 @@
+"""Phase 10 reuses the phase 8 fixtures: real database, semantic layer, security setup."""
+from tests.phase08.conftest import security_ready, semantic, service  # noqa: F401

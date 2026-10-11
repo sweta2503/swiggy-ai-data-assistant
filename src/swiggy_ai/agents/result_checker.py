@@ -9,6 +9,7 @@ Two kinds of finding:
   repair  the query is probably wrong: send it back to the writer with an explanation
   warn    the result may surprise the reader: say so next to the answer
 """
+import difflib
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -83,6 +84,38 @@ def check_clock_and_period(question: str, sql: str, sem: Semantic) -> list[Findi
                 f"The question refers to '{period.replace('_', ' ')}' but the query does not "
                 "measure it from analytics.data_as_of. Filter the date column like this: "
                 f"{example}"))
+    return findings
+
+
+def check_literals(sql: str, sem: Semantic) -> list[Finding]:
+    """A filter such as item_category = 'Beverage' returns nothing when the column holds
+    'Beverages'. For columns whose complete list of values is in the catalog, check the spelling."""
+    allowed: dict[str, list[str]] = {}
+    for table in sem.catalog.tables:
+        for col in table.columns:
+            if col.allowed_values:
+                allowed.setdefault(col.name, col.allowed_values)
+    tree = sqlglot.parse_one(sql, read="postgres")
+    seen: list[tuple[str, str]] = []
+    for node in tree.find_all(exp.EQ, exp.NEQ, exp.In):
+        if isinstance(node, exp.In):
+            sides = [(node.this, e) for e in node.expressions]
+        else:
+            sides = [(node.left, node.right), (node.right, node.left)]
+        for column, literal in sides:
+            if (isinstance(column, exp.Column) and column.name in allowed
+                    and isinstance(literal, exp.Literal) and literal.is_string
+                    and literal.name not in allowed[column.name]
+                    and (column.name, literal.name) not in seen):
+                seen.append((column.name, literal.name))
+    findings = []
+    for name, value in seen:
+        close = difflib.get_close_matches(value, allowed[name], n=1, cutoff=0.6)
+        findings.append(Finding(
+            "unknown_value", "repair", f"'{value}' is not a value of {name}",
+            f"'{value}' is not a value that {name} can hold, so the filter matches nothing. "
+            f"The values are exactly: {', '.join(allowed[name])}."
+            + (f" Did you mean '{close[0]}'?" if close else "")))
     return findings
 
 
@@ -247,6 +280,7 @@ def make_result_checker(rt: Runtime) -> Callable[[AgentState], dict]:
         findings: list[Finding] = []
         findings += check_values(state.columns, state.rows, state.truncated, rt.settings.max_rows)
         findings += check_clock_and_period(cur.question, sql, rt.semantic)
+        findings += check_literals(sql, rt.semantic)
         fan_out = check_fan_out(rt, state, sql)
         if fan_out:
             findings.append(fan_out)

@@ -1,0 +1,20 @@
+# Pass marks for `make eval-gate`. Set them yourself AFTER your first `make eval`, from numbers you
+# have seen and decided are acceptable (for example: a little below what the last good run got, so
+# a real regression fails the gate but ordinary run-to-run noise does not).
+#
+# A value of null means "not checked". While every value is null the gate refuses to pass: a gate
+# that approves everything is worse than no gate.
+#
+# min_*  the run must be at or above this      max_*  the run must be at or below this
+# accuracies are fractions between 0 and 1
+
+min_accuracy_after_healing: null      # correct answers after any repairs / all questions
+min_first_attempt_accuracy: null      # correct with no failed or rejected attempt first
+min_clarification_accuracy: null      # ambiguous questions that got a clarifying question
+min_refusal_accuracy: null            # unsafe requests that were refused (set this to 1.0)
+max_over_caution: null                # answerable questions that were refused or clarified
+max_avg_latency_ms: null
+max_avg_cost_usd: null                # only checked when prices are set in .env
+
+# optional per-category floors, e.g.  {trap: 1.0, security: 1.0, unsafe: 1.0}
+min_category_accuracy: {}

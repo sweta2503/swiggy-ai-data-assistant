@@ -13,6 +13,7 @@ A query passes only if ALL of these hold:
 Accepted queries are rewritten so a LIMIT of at most MAX_ROWS is always present.
 """
 import logging
+import re
 from dataclasses import dataclass
 
 import sqlglot
@@ -139,7 +140,22 @@ def check_sql(sql: str, allowed_views: set[str], max_rows: int = 500) -> GuardRe
             return _refuse(sql, "forbidden_function", f"The function '{name}' is not allowed.")
 
     rewritten, changes = _enforce_limit(tree, max_rows)
+    if _nulls_last_for_descending(rewritten, text):
+        changes.append("DESC sorts put NULLs last")
     return GuardResult(True, rewritten.sql(dialect="postgres"), changes=tuple(changes))
+
+
+def _nulls_last_for_descending(tree: exp.Expression, original: str) -> bool:
+    """Postgres puts NULLs FIRST in a descending sort, so "top 5 by revenue" would start with the
+    rows that have no revenue. Say NULLS LAST unless the query asked for NULLS FIRST by name."""
+    if re.search(r"\bnulls\s+first\b", original, re.IGNORECASE):
+        return False
+    changed = False
+    for ordered in tree.find_all(exp.Ordered):
+        if ordered.args.get("desc") and ordered.args.get("nulls_first"):
+            ordered.set("nulls_first", False)
+            changed = True
+    return changed
 
 
 def _enforce_limit(tree: exp.Expression, max_rows: int) -> tuple[exp.Expression, list[str]]:
