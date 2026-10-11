@@ -4,7 +4,7 @@ Ask business questions in plain English. A multi-agent system answers from a rea
 data warehouse, shows the SQL, fixes its own failed queries, catches silently wrong
 results, and never exposes PII. All data is generated sample data.
 
-> Status: **Phases 0-8 done** (setup, synthetic data, bronze, silver, gold, data quality, semantic layer, security, the multi-agent assistant). The README grows with each chapter.
+> Status: **Phases 0-9 done** (setup, synthetic data, bronze, silver, gold, data quality, semantic layer, security, the multi-agent assistant, audit and reporting). The README grows with each chapter.
 
 ## Prerequisites
 - Docker Desktop (running)
@@ -28,10 +28,11 @@ make catalog-check # 12. confirm semantic/catalog.yml describes every analytics 
 make security      # 13. roles, grants, row-level security, session limits (then verifies them)
 make seed-users    # 14. demo users: admin, Bengaluru manager, Mumbai manager (keys from .env)
 make security-demo # 15. log in as the assistant and watch each attempt to break out fail
+make report        # 16. how the assistant has been doing (from the audit trail)
 ```
 
 ## Make targets
-Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-08 ci`.
+Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-09 report ci`.
 
 ## Troubleshooting
 - **`role "assistant_ro" does not exist`**: another Postgres is answering. This project
@@ -74,3 +75,10 @@ answer = Assistant().ask("Why did refunds increase in Mumbai last month?",
                          AppUser("me", "Me", "ALL"))
 print(answer.answer, answer.sql, answer.warnings)
 ```
+
+## Cost reporting
+Add the price of each model in `.env` (`PRICE_INPUT_PER_1M`, `PRICE_OUTPUT_PER_1M`, US dollars per
+million tokens, from the provider's pricing page; optional `_LOW`, `_MEDIUM`, `_HIGH` pairs when the
+tiers use different models). Until you do, `make report` says `cost not computed (prices not set)`.
+Every question is recorded in `ops.assistant_runs` with personal data scrubbed; see
+`notes/chapter_09.md`.

@@ -368,7 +368,8 @@ def test_the_service_returns_everything_a_caller_needs(harness):
     from swiggy_ai.security.scope import AppUser
     h = harness()
     h.llm.say(SQLDraft, SQLDraft(sql=ORDERS)).say(Narration, Narration(answer="Done."))
-    a = Assistant(h.rt).ask("How many orders?", AppUser("u", "U", "ALL"), thread_id="svc")
+    svc = Assistant(h.rt, audit=False)
+    a = svc.ask("How many orders?", AppUser("u", "U", "ALL"), thread_id="svc")
     assert (a.status, a.answer, a.route) == ("answered", "Done.", "simple")
     assert a.sql.endswith("LIMIT 500") and a.steps[0].rows and a.thread_id == "svc"
     assert a.usage.calls == 3 and a.latency_ms >= 0 and not a.healed
@@ -380,7 +381,7 @@ def test_the_service_rejects_empty_and_oversized_input_and_survives_model_outage
     from swiggy_ai.llm import LLMError
     from swiggy_ai.security.scope import AppUser
     h = harness()
-    svc, user = Assistant(h.rt), AppUser("u", "U", "ALL")
+    svc, user = Assistant(h.rt, audit=False), AppUser("u", "U", "ALL")
     assert svc.ask("   ", user).status == "failed"
     assert svc.ask("x" * 2000, user).status == "refused"
     assert h.llm.calls == []
@@ -388,5 +389,5 @@ def test_the_service_rejects_empty_and_oversized_input_and_survives_model_outage
     def down(**kwargs):
         raise LLMError("OpenAI is unavailable")
     h.rt.llm = down
-    out = Assistant(h.rt).ask("How many orders?", user)
+    out = Assistant(h.rt, audit=False).ask("How many orders?", user)
     assert out.status == "failed" and "not available" in out.answer

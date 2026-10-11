@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 ci
+.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 test-09 report ci
 PY := .venv/bin/python
 export PYTHONPATH := src
 
@@ -106,6 +106,12 @@ test-07:  ## Phase 7 tests
 
 test-08:  ## Phase 8 tests (offline ones; live ones run too if OPENAI_API_KEY is set)
 	$(PY) -m pytest tests/phase08 -q
+
+report:  ## How the assistant did over the last 7 days (from the audit trail)
+	$(PY) -m swiggy_ai.ops.report
+
+test-09:  ## Phase 9 tests
+	$(PY) -m pytest tests/phase09 -q
 
 test:  ## All tests
 	$(PY) -m pytest -q

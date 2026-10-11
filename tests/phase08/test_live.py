@@ -91,7 +91,7 @@ from swiggy_ai.security.scope import AppUser  # noqa: E402
 def assistant():
     rt = Runtime.create(get_settings().model_copy(update={"demo_fault_injection": False}))
     rt.health_check = lambda: []
-    return Assistant(rt)
+    return Assistant(rt, audit=False)
 
 
 ADMIN = AppUser("live", "Live test", "ALL")
@@ -143,3 +143,37 @@ def test_a_manager_sees_only_their_city_even_when_asking_for_everything(assistan
                       AppUser("blr", "Bengaluru manager", "Bengaluru"))
     show(a)
     assert a.status == "answered" and a.steps[0].rows[0][0] == pytest.approx(truth)
+
+
+# --- the router's judgment on realistic wording (a small model, so measured, not assumed) ------
+ROUTER_CASES = {
+    "Revenue by customer segment": "simple", "What is our AOV?": "simple",
+    "Show me sales": "simple", "orders by city": "simple", "cancellation rate in Pune": "simple",
+    "How did refunds change last month?": "simple",
+    "Top 5 restaurants by net revenue in Bengaluru last month": "simple",
+    "Which city has the highest average delivery time?": "simple",
+    "Which cuisine has the lowest cancellation rate?": "simple",
+    "Which restaurant has the most orders?": "simple",
+    "What was the average order value by cuisine?": "simple",
+    "How many customers signed up in March?": "simple",
+    "Why did refunds increase in Mumbai last month?": "multi_step",
+    "Why is revenue down?": "multi_step",
+    "Why did delivery times get worse in Mumbai?": "multi_step",
+    "Best customers?": "ambiguous", "How are we doing?": "ambiguous",
+    "Top restaurants": "ambiguous",
+    "Which are our worst performing cities?": "ambiguous", "Show me the best dishes": "ambiguous",
+    "What's the weather in Pune?": "out_of_scope", "Tell me a joke": "out_of_scope",
+    "Who won the cricket match?": "out_of_scope",
+}
+
+
+def test_the_router_classifies_realistic_questions_well_enough():
+    from swiggy_ai.agents.router import make_router
+    rt = Runtime.create(get_settings())
+    route = make_router(rt)
+    wrong = {q: got for q, want in ROUTER_CASES.items()
+             if (got := route(AgentState(question=q))["route"]) != want}
+    print(f"\n  router: {len(ROUTER_CASES) - len(wrong)}/{len(ROUTER_CASES)} as expected; {wrong}")
+    assert len(wrong) <= 2  # ~91% or better; chapter 10 measures the whole assistant properly
+    # the ones that decide what is allowed must not be wrong, whatever else is
+    assert not {"What's the weather in Pune?", "Tell me a joke"} & set(wrong)

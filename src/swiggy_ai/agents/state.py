@@ -75,19 +75,24 @@ class Turn(BaseModel):
 
 
 class Usage(BaseModel):
+    """Tokens used by a question: in total, per step, and per model tier (for cost)."""
     calls: int = 0
     tokens_in: int = 0
     tokens_out: int = 0
     by_step: dict[str, dict[str, int]] = {}
+    by_tier: dict[str, dict[str, int]] = {}
 
-    def plus(self, step: str, tokens_in: int, tokens_out: int) -> "Usage":
-        by = {k: dict(v) for k, v in self.by_step.items()}
-        row = by.setdefault(step, {"calls": 0, "tokens_in": 0, "tokens_out": 0})
-        row["calls"] += 1
-        row["tokens_in"] += tokens_in
-        row["tokens_out"] += tokens_out
+    def plus(self, step: str, tokens_in: int, tokens_out: int, tier: str = "medium") -> "Usage":
+        def bump(table: dict[str, dict[str, int]], key: str) -> dict[str, dict[str, int]]:
+            out = {k: dict(v) for k, v in table.items()}
+            row = out.setdefault(key, {"calls": 0, "tokens_in": 0, "tokens_out": 0})
+            row["calls"] += 1
+            row["tokens_in"] += tokens_in
+            row["tokens_out"] += tokens_out
+            return out
         return Usage(calls=self.calls + 1, tokens_in=self.tokens_in + tokens_in,
-                     tokens_out=self.tokens_out + tokens_out, by_step=by)
+                     tokens_out=self.tokens_out + tokens_out, by_step=bump(self.by_step, step),
+                     by_tier=bump(self.by_tier, tier))
 
 
 class AgentState(BaseModel):

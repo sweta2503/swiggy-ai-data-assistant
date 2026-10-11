@@ -38,8 +38,17 @@ class Settings(BaseSettings):
     context_tokens: int = Field(default=2200, ge=300)  # budget for the semantic context
 
     # Empty string in .env means "not set", so these stay optional.
+    # US dollars per 1,000,000 tokens, from the OpenAI pricing page. The plain pair applies to every
+    # model; the per-tier pairs (low / medium / high) override it, which matters when the tiers use
+    # different models. Leave them all empty and costs are simply not computed.
     price_input_per_1m: float | None = None
     price_output_per_1m: float | None = None
+    price_input_per_1m_low: float | None = None
+    price_output_per_1m_low: float | None = None
+    price_input_per_1m_medium: float | None = None
+    price_output_per_1m_medium: float | None = None
+    price_input_per_1m_high: float | None = None
+    price_output_per_1m_high: float | None = None
 
 
 @lru_cache

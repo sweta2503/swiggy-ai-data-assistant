@@ -80,6 +80,16 @@ def format_history(turns: list[Turn]) -> str:
     return "\n".join(lines)
 
 
+def known_vocabulary(rt: Runtime) -> str:
+    """What the assistant can already measure and group by, so the router does not ask the user
+    to explain a word the semantic layer defines ("revenue" always means net revenue)."""
+    measures = "; ".join(f"{m.name.replace('_', ' ')} (also: {', '.join(m.synonyms[:5])})"
+                         for m in rt.semantic.metrics.metrics)
+    return (f"Defined measures: {measures}.\n"
+            "Ways to group: city, cuisine, restaurant, customer segment, platform, item "
+            "category, refund reason, day, week, month.")
+
+
 def make_router(rt: Runtime) -> Callable[[AgentState], dict]:
     def router(state: AgentState) -> dict:
         question = state.question.strip()
@@ -90,7 +100,8 @@ def make_router(rt: Runtime) -> Callable[[AgentState], dict]:
 
         decision, usage = rt.ask(
             state, "router", "router",
-            f"{format_history(state.history[-3:])}\n\nNewest message: {question}",
+            f"{known_vocabulary(rt)}\n\n{format_history(state.history[-3:])}\n\n"
+            f"Newest message: {question}",
             RouteDecision, tier="low")
         working = (decision.question or question).strip()
         again = screen_question(working)  # the rewrite must pass the screen too

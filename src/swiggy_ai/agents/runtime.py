@@ -80,4 +80,4 @@ class Runtime:
         """Call the model for one step. Returns the parsed answer and the updated usage."""
         r = self.llm(instructions=load_prompt(prompt), user_input=user_input, schema=schema,
                      tier=tier, temperature=temperature)
-        return r.parsed, state.usage.plus(step, r.usage.input_tokens, r.usage.output_tokens)
+        return r.parsed, state.usage.plus(step, r.usage.input_tokens, r.usage.output_tokens, tier)
