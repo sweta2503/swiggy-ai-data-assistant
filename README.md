@@ -4,7 +4,7 @@ Ask business questions in plain English. A multi-agent system answers from a rea
 data warehouse, shows the SQL, fixes its own failed queries, catches silently wrong
 results, and never exposes PII. All data is generated sample data.
 
-> Status: **Phases 0-6 done** (setup, synthetic data, bronze, silver, gold, data quality, semantic layer). The README grows with each chapter.
+> Status: **Phases 0-7 done** (setup, synthetic data, bronze, silver, gold, data quality, semantic layer, security). The README grows with each chapter.
 
 ## Prerequisites
 - Docker Desktop (running)
@@ -25,10 +25,13 @@ make gold-full     # 9. build the star schema (about 13 seconds); later `make go
 make dq            # 10. run the data quality checks (45 of them)
 make dq-demo       # 11. break a copy of gold on purpose and watch the checks catch it
 make catalog-check # 12. confirm semantic/catalog.yml describes every analytics view column
+make security      # 13. roles, grants, row-level security, session limits (then verifies them)
+make seed-users    # 14. demo users: admin, Bengaluru manager, Mumbai manager (keys from .env)
+make security-demo # 15. log in as the assistant and watch each attempt to break out fail
 ```
 
 ## Make targets
-Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views dq dq-demo catalog-check lint test test-00 ... test-06 ci`.
+Run `make` to list them. So far: `venv env up down reset-db psql check data bronze bronze-rerun-test bronze-reset silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 ... test-07 ci`.
 
 ## Troubleshooting
 - **`role "assistant_ro" does not exist`**: another Postgres is answering. This project
@@ -48,3 +51,10 @@ The gold star schema is drawn in `docs/erd.md`.
 `semantic/metrics.yml` (one SQL definition per metric), `semantic/catalog.yml` (every column the
 assistant can see) and `semantic/glossary.md` are the single source of business meaning. Read
 `notes/chapter_06.md`.
+
+## Security in one paragraph
+The assistant logs in as `assistant_ro`, which can read only the eight documented `analytics`
+views, cannot write, runs under an 8-second timeout, and sees only the cities its user is
+allowed (row-level security that fails closed). Set real values for `API_KEY`,
+`API_KEY_BENGALURU` and `API_KEY_MUMBAI` in `.env` before `make seed-users`. Details and the
+honest limits are in `notes/chapter_07.md`.

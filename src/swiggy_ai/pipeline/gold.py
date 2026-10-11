@@ -15,7 +15,7 @@ import psycopg
 
 from swiggy_ai.db import connect
 from swiggy_ai.logging_setup import setup_logging
-from swiggy_ai.pipeline.runner import SQL_ROOT
+from swiggy_ai.pipeline.runner import SQL_ROOT, run_sql_dir
 
 log = logging.getLogger("gold")
 TABLES = [
@@ -48,9 +48,16 @@ def seed_festivals(conn: psycopg.Connection, data_dir: Path | None) -> int:
     return len(dates)
 
 
-def apply_views(conn: psycopg.Connection) -> None:
-    """(Re)create the analytics views the assistant reads. Safe to repeat."""
+def apply_security_objects(conn: psycopg.Connection) -> None:
+    """(Re)create what protects gold: the access tables, the row-level security rules and the
+    analytics views the assistant reads. Run as the table owner. Safe to repeat."""
+    run_sql_dir(conn, "ops")
+    conn.execute((SQL_ROOT / "gold" / "00_tables.sql").read_text())
+    conn.execute((SQL_ROOT / "security" / "05_rls.sql").read_text())
     conn.execute((SQL_ROOT / "security" / "10_analytics_views.sql").read_text())
+
+
+apply_views = apply_security_objects  # the old name, kept so earlier chapters still read well
 
 
 def reset_gold(conn: psycopg.Connection) -> None:
@@ -73,7 +80,7 @@ def run_gold(conn: psycopg.Connection, full: bool = False,
         for path in sorted((SQL_ROOT / "gold").glob("*.sql")):
             if path.name != "00_tables.sql":
                 conn.execute(path.read_text())
-        apply_views(conn)
+        apply_security_objects(conn)
         for t in TABLES:
             report.rows[t] = _count(conn, t)
             report.added[t] = report.rows[t] - before[t]

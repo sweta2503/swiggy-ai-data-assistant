@@ -22,7 +22,9 @@ class Settings(BaseSettings):
     database_url_etl: str = "postgresql://etl_writer:etl_dev_pw@localhost:5433/swiggy"
     database_url_assistant: str = "postgresql://assistant_ro:assistant_dev_pw@localhost:5433/swiggy"
 
-    api_key: str = ""
+    api_key: str = ""  # the admin user's API key
+    api_key_bengaluru: str = ""
+    api_key_mumbai: str = ""
 
     max_heal_attempts: int = Field(default=3, ge=0, le=10)
     query_timeout_ms: int = Field(default=8000, ge=100)

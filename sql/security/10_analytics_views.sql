@@ -2,7 +2,9 @@
 --   * names, not surrogate keys (city, restaurant_name ...), so questions need few joins
 --   * no personal data: no names, emails, addresses; phone only as a masked form
 --   * dates are IST business dates
--- Phase 7 adds the roles, row-level security and grants around these views.
+-- The views run with their owner's rights, so the assistant needs no access to gold itself.
+-- City scoping comes from row-level security on the gold tables (05_rls.sql); the customers
+-- view, which reads a dimension, applies the same rule directly.
 
 CREATE OR REPLACE VIEW analytics.orders AS
 SELECT f.order_id,
@@ -72,7 +74,8 @@ SELECT cu.customer_id,
        'XXXXXX' || right(p.phone, 4)                 AS masked_phone
 FROM gold.dim_customer cu
 LEFT JOIN gold.customer_pii p ON p.customer_id = cu.customer_id
-WHERE cu.is_current AND cu.customer_id <> 'UNKNOWN';
+WHERE cu.is_current AND cu.customer_id <> 'UNKNOWN'
+  AND cu.city_sk IN (SELECT gold.visible_city_sks());
 
 CREATE OR REPLACE VIEW analytics.restaurants AS
 SELECT r.restaurant_id,

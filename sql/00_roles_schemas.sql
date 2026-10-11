@@ -9,6 +9,11 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'etl_writer') \gexec
 SELECT format('CREATE ROLE assistant_ro LOGIN PASSWORD %L', :'assistant_password')
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'assistant_ro') \gexec
 
+-- Marker group used by row-level security (phase 7 grants and explains it)
+SELECT 'CREATE ROLE app_restricted NOLOGIN'
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_restricted') \gexec
+GRANT app_restricted TO assistant_ro;
+
 -- Schemas -------------------------------------------------------------
 CREATE SCHEMA IF NOT EXISTS bronze;     -- raw, as received
 CREATE SCHEMA IF NOT EXISTS silver;     -- cleaned

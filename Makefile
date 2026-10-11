@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 ci
+.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 ci
 PY := .venv/bin/python
 export PYTHONPATH := src
 
@@ -56,6 +56,18 @@ gold-full:  ## Empty gold and rebuild it from silver
 views:  ## (Re)create the analytics views the assistant reads
 	$(PY) -c "from swiggy_ai.db import connect; from swiggy_ai.pipeline.gold import apply_views; c = connect('etl', autocommit=True); apply_views(c); print('analytics views created')"
 
+security:  ## Create roles, grants, row-level security and session limits, then verify them
+	$(PY) -m swiggy_ai.security
+
+security-verify:  ## Check the live database's security posture (exit 1 on a problem)
+	$(PY) -m swiggy_ai.security --verify
+
+seed-users:  ## Create the demo users (admin, Bengaluru, Mumbai) from the keys in .env
+	$(PY) -m swiggy_ai.security --seed-users
+
+security-demo:  ## Log in as the assistant and try to break out (needs data loaded)
+	$(PY) -m swiggy_ai.security --demo
+
 catalog-check:  ## Fail if a column in an analytics view is missing from semantic/catalog.yml
 	$(PY) -m swiggy_ai.semantic
 
@@ -88,6 +100,9 @@ test-05:  ## Phase 5 tests
 
 test-06:  ## Phase 6 tests
 	$(PY) -m pytest tests/phase06 -q
+
+test-07:  ## Phase 7 tests
+	$(PY) -m pytest tests/phase07 -q
 
 test:  ## All tests
 	$(PY) -m pytest -q
