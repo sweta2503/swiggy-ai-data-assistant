@@ -130,7 +130,7 @@ def test_the_row_cap_is_enforced_and_reported(harness):
 
 
 def test_a_database_error_is_classified_and_reported(harness):
-    h = harness()
+    h = harness(max_heal_attempts=0)  # (the repair loop has its own tests)
     h.llm.say(SQLDraft, SQLDraft(sql="SELECT total_amount FROM analytics.orders"))
     s = h.ask("revenue")
     assert s.status == "failed"
@@ -151,14 +151,15 @@ def test_a_database_error_is_classified_and_reported(harness):
     ("SELECT 1 / 0", "other"),
 ])
 def test_database_errors_get_the_right_class(harness, sql, expected):
-    h = harness()
+    h = harness(max_heal_attempts=0)
     h.llm.say(SQLDraft, SQLDraft(sql=sql))
     s = h.ask("anything")
     assert s.attempts[-1].error_class == expected, s.attempts[-1].error_text
 
 
 def test_a_query_that_runs_too_long_is_cut_off(harness):
-    h = harness(query_timeout_ms=500, max_plan_cost=1e18)  # let the costly plan through
+    # a huge cost limit lets the expensive plan through to the timeout
+    h = harness(query_timeout_ms=500, max_plan_cost=1e18, max_heal_attempts=0)
     slow = ("SELECT count(*) FROM analytics.orders a CROSS JOIN analytics.orders b "
             "CROSS JOIN analytics.orders c")
     h.llm.say(SQLDraft, SQLDraft(sql=slow))
@@ -210,7 +211,7 @@ def test_a_cheap_query_is_not_questioned(harness):
 
 
 def test_a_planning_error_is_caught_before_execution(harness):
-    h = harness()
+    h = harness(max_heal_attempts=0)
     h.llm.say(SQLDraft, SQLDraft(sql="SELECT nope FROM analytics.orders"))
     s = h.ask("anything")
     assert len(s.attempts) == 1 and s.attempts[0].error_class == "undefined_column"

@@ -1,6 +1,8 @@
-"""The agent graph, increment 08a: question -> schema -> SQL -> guard -> cost -> run -> narrate.
+"""The agent graph.
 
-(Later increments add the self-healing loop, the result checker, and the router/planner.)
+08a: question -> schema -> SQL -> guard -> cost -> run -> narrate
+08b: a failed query goes to the healer, then back through the guard
+(Later increments add the result checker and the router/planner.)
 """
 from typing import Literal
 
@@ -10,6 +12,7 @@ from langgraph.graph import END, START, StateGraph
 from swiggy_ai.agents.cost_check import make_cost_check
 from swiggy_ai.agents.executor import make_executor
 from swiggy_ai.agents.guard_node import make_guard
+from swiggy_ai.agents.healer import can_heal, make_healer
 from swiggy_ai.agents.narrator import make_narrator
 from swiggy_ai.agents.results import make_record_result
 from swiggy_ai.agents.runtime import Runtime
@@ -25,14 +28,29 @@ def begin(state: AgentState) -> dict:
             "plan": [SubQuestion(id=1, question=q)], "item": 0}
 
 
-def after_guard(state: AgentState) -> Literal["cost_check", "record_result"]:
-    return "record_result" if state.last_error_class else "cost_check"
+def make_routes(rt: Runtime):
+    """The routing decisions. They need the runtime only to read the heal limit."""
 
+    def failure(state: AgentState) -> Literal["healer", "record_result"]:
+        """Something went wrong with this query: repair it, or give up and report."""
+        return "healer" if can_heal(rt, state) else "record_result"
 
-def after_cost(state: AgentState) -> Literal["sql_writer", "executor", "record_result"]:
-    if state.last_error_class:  # the planner already found an error
-        return "record_result"
-    return "sql_writer" if state.hint else "executor"
+    def after_guard(state: AgentState) -> Literal["cost_check", "healer", "record_result"]:
+        return failure(state) if state.last_error_class else "cost_check"
+
+    def after_cost(state: AgentState) -> Literal["sql_writer", "executor", "healer",
+                                                   "record_result"]:
+        if state.last_error_class:  # the planner already found an error
+            return failure(state)
+        return "sql_writer" if state.hint else "executor"
+
+    def after_executor(state: AgentState) -> Literal["record_result", "healer"]:
+        return "record_result" if state.item_ok else failure(state)
+
+    def after_healer(state: AgentState) -> Literal["guard", "record_result"]:
+        return "record_result" if state.last_error_class else "guard"
+
+    return after_guard, after_cost, after_executor, after_healer
 
 
 def after_record(state: AgentState) -> Literal["schema_agent", "narrator"]:
@@ -47,6 +65,7 @@ def build_graph(rt: Runtime, checkpointer=None):
     g.add_node("guard", make_guard(rt))
     g.add_node("cost_check", make_cost_check(rt))
     g.add_node("executor", make_executor(rt))
+    g.add_node("healer", make_healer(rt))
     g.add_node("record_result", make_record_result())
     g.add_node("narrator", make_narrator(rt))
 
@@ -54,9 +73,11 @@ def build_graph(rt: Runtime, checkpointer=None):
     g.add_edge("begin", "schema_agent")
     g.add_edge("schema_agent", "sql_writer")
     g.add_edge("sql_writer", "guard")
+    after_guard, after_cost, after_executor, after_healer = make_routes(rt)
     g.add_conditional_edges("guard", after_guard)
     g.add_conditional_edges("cost_check", after_cost)
-    g.add_edge("executor", "record_result")
+    g.add_conditional_edges("executor", after_executor)
+    g.add_conditional_edges("healer", after_healer)
     g.add_conditional_edges("record_result", after_record)
     g.add_edge("narrator", END)
     return g.compile(checkpointer=checkpointer or MemorySaver())

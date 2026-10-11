@@ -67,3 +67,16 @@ def test_relative_dates_use_the_data_not_the_clock(live, service):
     print(f"\n  {s.answer}\n  {s.final_sql}")
     assert s.status == "answered" and s.results[0].rows[0][0] == truth > 0
     assert "current_date" not in s.final_sql.lower() and "now()" not in s.final_sql.lower()
+
+
+def test_a_demo_fault_is_repaired_by_the_real_model(service):
+    truth = float(service.execute("SELECT sum(net_revenue) FROM gold.fact_orders").fetchone()[0])
+    rt = Runtime.create(get_settings().model_copy(update={"demo_fault_injection": True}))
+    rt.health_check = lambda: []
+    s = ask((rt, build_graph(rt)), "What is our total net revenue?")
+    for a in s.attempts:
+        print(f"\n  attempt {a.no} [{a.source}] {a.status} {a.error_class}: {a.error_text[:70]}")
+    print(f"\n  warnings: {s.warnings}\n  answer: {s.answer}")
+    assert s.fault_injected and s.attempts[0].source == "fault"
+    assert s.status == "answered" and s.results[0].rows[0][0] == pytest.approx(truth)
+    assert s.results[0].healed >= 1

@@ -25,6 +25,9 @@ def make_record_result() -> Callable[[AgentState], dict]:
             healed=max(extra, 0) if ok else 0,
             failure="" if ok else failure_text(state))
         update = {"results": [*state.results, step], "item": state.item + 1}
+        if ok and step.healed:
+            update["warnings"] = [*state.warnings, f"The query failed {step.healed} time(s) and "
+                                  "was repaired automatically."]
         if ok:
             update["final_sql"] = state.current_sql
         return update
