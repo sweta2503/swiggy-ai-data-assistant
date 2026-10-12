@@ -68,8 +68,29 @@ def score_metric(m: Metric, question: str, qwords: set[str]) -> int:
     return score
 
 
-def score_table(t: Table, question: str, qwords: set[str]) -> int:
+def value_owners(sem: Semantic) -> dict[frozenset[str], str]:
+    """allowed value (as a set of words) -> the ONE view whose column allows it.
+
+    "beverage" appears only in order_items.item_category ('Beverages'), so a question that says it
+    is about that view. A value that several views allow ('delivered', 'Pune', 'new') says nothing
+    about which view is meant, so it is left out. A value of several words ('LATE_DELIVERY') only
+    counts when the question has all of them: 'delivery' alone is an everyday word."""
+    seen: dict[frozenset[str], set[str]] = {}
+    for t in sem.catalog.tables:
+        for c in t.columns:
+            for value in c.allowed_values:
+                tokens = frozenset(words(value.replace("_", " ")))
+                if tokens:
+                    seen.setdefault(tokens, set()).add(t.name)
+    return {tokens: next(iter(names)) for tokens, names in seen.items() if len(names) == 1}
+
+
+def score_table(t: Table, question: str, qwords: set[str],
+                owners: dict[frozenset[str], str] | None = None) -> int:
     score = 0
+    if owners:  # naming a value only this view can hold is strong evidence for it
+        hits = sum(1 for tokens, owner in owners.items() if owner == t.name and tokens <= qwords)
+        score += min(8, 4 * hits)
     short = t.name.split(".")[1]
     if phrase_in(short.replace("_", " "), question):
         score += 6
@@ -133,7 +154,8 @@ def build_context(question: str, budget_tokens: int = 2200,
                       key=lambda x: (-x[0], x[1].name))
     metrics = [m for s, m in scored_m if s >= 4][:4]
 
-    scored_t = sorted(((score_table(t, question, qwords), t) for t in sem.catalog.tables),
+    owners = value_owners(sem)
+    scored_t = sorted(((score_table(t, question, qwords, owners), t) for t in sem.catalog.tables),
                       key=lambda x: (-x[0], x[1].name))
     tables: list[Table] = []
     for m in metrics:  # the views the chosen metrics run on come first

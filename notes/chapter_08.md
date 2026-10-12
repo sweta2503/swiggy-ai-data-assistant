@@ -28,7 +28,7 @@ error and the views' documentation. It stops at `MAX_HEAL_ATTEMPTS` or when it r
 
 **The result checker** catches failures that give no error: *join fan-out* (a trusted control query on
 `analytics.orders` alone is compared with the answer), wall-clock dates, a period not anchored to
-`data_as_of`, misspelt filter values, and odd values as warnings.
+`data_as_of`, misspelt filter values, item lines counted as orders, and odd values as warnings.
 
 **Verified narration:** every number in the written answer is looked up in the result rows; one firm
 retry, then plain figures with a warning.

@@ -119,6 +119,33 @@ def check_literals(sql: str, sem: Semantic) -> list[Finding]:
     return findings
 
 
+ASKS_ABOUT_ORDERS = re.compile(r"\borders?\b", re.IGNORECASE)
+ASKS_ABOUT_LINES = re.compile(r"\b(items?|dish(?:es)?|lines?|units?|quantity|qty|sold)\b",
+                              re.IGNORECASE)
+
+
+def check_count_grain(question: str, sql: str) -> list[Finding]:
+    """order_items has one row per ITEM LINE. Counting its rows answers "how many item lines", and a
+    question about ORDERS needs COUNT(DISTINCT order_id). Nothing errors and the number looks fine
+    (an order with three dishes counts three times), so it has to be caught by reading the SQL.
+    Joins with orders are the fan-out check's job; this one is for a query on order_items alone."""
+    if not ASKS_ABOUT_ORDERS.search(question) or ASKS_ABOUT_LINES.search(question):
+        return []
+    tree = sqlglot.parse_one(sql, read="postgres")
+    tables = {t.name for t in tree.find_all(exp.Table)}
+    if "order_items" not in tables or "orders" in tables:
+        return []
+    plain_counts = [c for c in tree.find_all(exp.Count) if not isinstance(c.this, exp.Distinct)]
+    if not plain_counts:
+        return []
+    return [Finding(
+        "item_lines_counted_as_orders", "repair",
+        "it counts rows of order_items (one per item line), but the question is about orders",
+        "analytics.order_items has one row per ITEM LINE, so COUNT(*) counts item lines, not "
+        "orders: an order with three dishes is counted three times. To count orders use "
+        "COUNT(DISTINCT order_id).")]
+
+
 def check_values(columns: list[str], rows: list[list[Any]], truncated: bool,
                  max_rows: int) -> list[Finding]:
     findings = []
@@ -281,6 +308,7 @@ def make_result_checker(rt: Runtime) -> Callable[[AgentState], dict]:
         findings += check_values(state.columns, state.rows, state.truncated, rt.settings.max_rows)
         findings += check_clock_and_period(cur.question, sql, rt.semantic)
         findings += check_literals(sql, rt.semantic)
+        findings += check_count_grain(cur.question, sql)
         fan_out = check_fan_out(rt, state, sql)
         if fan_out:
             findings.append(fan_out)

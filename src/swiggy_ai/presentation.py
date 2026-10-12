@@ -35,6 +35,7 @@ CHECK_WORDS = {
     "period_not_anchored": "it did not measure the period from the date the data ends",
     "fan_out_suspected": "a join repeated rows, so a total looked inflated",
     "unknown_value": "it filtered on a value that does not exist",
+    "item_lines_counted_as_orders": "it counted item lines where the question asked about orders",
     "empty_result": "the query returned no rows",
     "all_null_result": "every value in the result was empty",
     "row_cap": "the result was cut at the row limit",

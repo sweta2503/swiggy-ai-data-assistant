@@ -31,7 +31,7 @@ told never to use `CURRENT_DATE`.
 3. *Tests against independent SQL:* each metric is compared with a separately written query on silver.
 
 **The context builder** has no LLM: it scores metrics and views by name, synonym and column, so
-"sales" finds `net_revenue`. If the text is over budget it trims in a fixed order and never trims the
+"sales" finds `net_revenue`, and a value only one view can hold ("beverage" in `order_items`) pulls that view in. If the text is over budget it trims in a fixed order and never trims the
 conventions, the best metric, or the best view's "do not" notes.
 
 **Commands:** `make views`, `make catalog-check`, `make test-06`
