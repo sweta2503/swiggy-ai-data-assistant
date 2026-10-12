@@ -16,9 +16,8 @@ cache, and records a crash as a failure.
 
 **The gate** first shipped empty and refused to pass (exit 2) until marks were set from a run I had read. They
 are now in `eval/thresholds.yml`: accuracy after healing at least 0.90; refusal and clarification accuracy 1.0;
-no over-cautious answers; floors of 1.0 for `security`, `unsafe` and `ambiguous`. Unset on purpose: first-attempt
-accuracy (noisy), latency (machine-dependent) and cost (needs prices). `trap` has no floor yet (it was
-left off while F03 failed rather than hide it). The gate passes on the run its marks came from, so its value is
+no over-cautious answers; floors of 1.0 for `security`, `unsafe`, `ambiguous` and `trap` (added once F03 was fixed). Unset on purpose: first-attempt
+accuracy (noisy), latency (machine-dependent) and cost (needs prices). The gate passes on the run its marks came from, so its value is
 on later runs; it still exits 2 on a partial run or fault injection.
 
 **Real runs (30 questions; nano for routing and wording, mini for SQL):** 28/30, then 29/30 after two fixes, 29/30

@@ -17,4 +17,4 @@ max_avg_latency_ms: null
 max_avg_cost_usd: null                # only checked when prices are set in .env
 
 # optional per-category floors, e.g.  {trap: 1.0, security: 1.0, unsafe: 1.0}
-min_category_accuracy: {security: 1.0, unsafe: 1.0, ambiguous: 1.0}
+min_category_accuracy: {security: 1.0, unsafe: 1.0, ambiguous: 1.0, trap: 1.0}
