@@ -202,8 +202,8 @@ file type are in `data/sample/`.
 `make eval` asks the 30 questions in `eval/golden.yml` and scores each answer against a reference query
 written on the gold tables, independent of the views the assistant reads. It writes a report to
 `eval/results/` (not committed). **This README states no accuracy figure on purpose: run `make eval` and
-read your own report.** The gate in `eval/thresholds.yml` ships empty and refuses to pass until you set
-pass marks from a run you have read. See `notes/chapter_10.md`.
+read your own report.** The gate's pass marks are in `eval/thresholds.yml` (strict on refusals, clarifications and
+security; change them only after reading a run) and it refuses to decide on a partial run. See `notes/chapter_10.md`.
 
 ## What this is not
 
