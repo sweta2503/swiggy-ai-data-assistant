@@ -4,6 +4,10 @@
 A full rebuild of about 950,000 bronze rows takes about 15 seconds. Every run after that
 only reads bronze batches it has not seen.
 
+**Why it matters at work:** nobody should have to remember that "DLVRD" means delivered. Silver is the
+layer where every source quirk is fixed once, in code, with a reason, so everything downstream can
+trust types, keys and spellings.
+
 **What silver fixes (each one is a defect from chapter 1)**
 
 | Defect | Silver rule |

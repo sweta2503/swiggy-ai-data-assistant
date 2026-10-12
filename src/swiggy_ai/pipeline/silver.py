@@ -14,7 +14,7 @@ import psycopg
 
 from swiggy_ai.db import connect
 from swiggy_ai.logging_setup import setup_logging
-from swiggy_ai.pipeline.runner import SQL_ROOT, run_sql_dir
+from swiggy_ai.pipeline.runner import SQL_ROOT, analyze_schema, run_sql_dir, should_analyze
 
 log = logging.getLogger("silver")
 STAGE = "silver"
@@ -51,8 +51,10 @@ def reset_silver(conn: psycopg.Connection) -> None:
     conn.execute("DELETE FROM ops.pipeline_state WHERE stage = %s", (STAGE,))
 
 
-def run_silver(conn: psycopg.Connection, full: bool = False) -> SilverReport:
+def run_silver(conn: psycopg.Connection, full: bool = False,
+               analyze: bool | None = None) -> SilverReport:
     report = SilverReport()
+    analyze = should_analyze(conn, analyze)  # decided before our own transaction begins
     with conn.transaction():
         run_sql_dir(conn, "ops")
         conn.execute((SQL_ROOT / "silver" / "00_functions.sql").read_text())
@@ -80,6 +82,8 @@ def run_silver(conn: psycopg.Connection, full: bool = False) -> SilverReport:
             if path.name in ("00_functions.sql", "01_tables.sql"):
                 continue
             conn.execute(path.read_text())
+            if analyze:  # later steps join to the tables this one just filled
+                analyze_schema(conn, "silver")
 
         for table, hi in marks.items():
             conn.execute(

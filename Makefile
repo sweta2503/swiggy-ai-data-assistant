@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 test-09 test-10 test-11 test-12 test-13 api ui ask daily scheduler cache-clear drift-demo refresh-catalog eval eval-check eval-gate eval-compare ci
+.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 test-09 test-10 test-11 test-12 test-13 test-14 report api ui ask daily scheduler cache-clear drift-demo refresh-catalog eval eval-check eval-gate eval-compare ci
 PY := .venv/bin/python
 export PYTHONPATH := src:.
 
@@ -160,6 +160,9 @@ test-12:  ## Phase 12 tests
 
 test-13:  ## Phase 13 tests
 	$(PY) -m pytest tests/phase13 -q
+
+test-14:  ## Phase 14 tests (the documentation)
+	$(PY) -m pytest tests/phase14 -q
 
 test:  ## All tests
 	$(PY) -m pytest -q

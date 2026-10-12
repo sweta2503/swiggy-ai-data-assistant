@@ -3,10 +3,13 @@
 The model is scripted (no OpenAI calls); the database is real, and the queries run as the real
 read-only, city-scoped assistant login.
 """
+import functools
+
 import pytest
 
-from swiggy_ai.agents.narrator import Narration
+from swiggy_ai.agents.narrator import Narration, fmt
 from swiggy_ai.agents.sql_writer import SQLDraft
+from swiggy_ai.db import connect
 
 pytestmark = pytest.mark.db
 NET = ("SELECT SUM(order_value - discount) FILTER (WHERE status = 'delivered') AS net_revenue "
@@ -14,6 +17,13 @@ NET = ("SELECT SUM(order_value - discount) FILTER (WHERE status = 'delivered') A
 TODAY = "(SELECT today FROM analytics.data_as_of)"
 NET_LAST_MONTH = (NET + f" WHERE city = 'Pune' AND order_date >= date_trunc('month', {TODAY})"
                   f" - INTERVAL '1 month' AND order_date < date_trunc('month', {TODAY})")
+
+
+@functools.cache
+def total_net_revenue() -> float:
+    """The truth, read from gold (a number typed into a test fits only one day's data)."""
+    with connect("etl", autocommit=True) as c:
+        return float(c.execute("SELECT sum(net_revenue) FROM gold.fact_orders").fetchone()[0])
 
 
 def scalar(conn, sql):
@@ -47,7 +57,7 @@ def test_a_question_goes_all_the_way_to_a_checked_answer(harness, service):
 
 def test_models_are_used_by_tier_cheap_for_wording_stronger_for_sql(harness):
     h = harness()
-    h.llm.say(SQLDraft, SQLDraft(sql=NET)).say(Narration, says_revenue(63748004.83))
+    h.llm.say(SQLDraft, SQLDraft(sql=NET)).say(Narration, says_revenue(total_net_revenue()))
     h.ask("net revenue")
     assert {c.schema: c.tier for c in h.llm.calls} == {"RouteDecision": "low",
                                                        "SQLDraft": "medium", "Narration": "low"}
@@ -74,7 +84,7 @@ def test_the_numbers_in_the_answer_must_come_from_the_result(harness):
     s = h.ask("net revenue")
     assert h.llm.count(Narration) == 2  # it was asked once more, firmly
     assert "99,999,999" not in s.answer and "70,000,000" not in s.answer
-    assert "net_revenue: 63748004.83" in s.answer  # the plain figures from the data
+    assert f"net_revenue: {fmt(total_net_revenue())}" in s.answer  # the plain figures from the data
     assert any("could not be verified" in w for w in s.warnings)
 
 
@@ -82,9 +92,9 @@ def test_a_narration_that_fixes_itself_on_the_second_try_is_accepted(harness):
     h = harness()
     h.llm.say(SQLDraft, SQLDraft(sql=NET)).say(
         Narration, Narration(answer="Revenue was ₹12,345."),
-        Narration(answer="Net revenue was ₹63,748,004.83."))
+        Narration(answer=f"Net revenue was ₹{total_net_revenue():,.2f}."))
     s = h.ask("net revenue")
-    assert s.answer == "Net revenue was ₹63,748,004.83." and s.warnings == []
+    assert s.answer == f"Net revenue was ₹{total_net_revenue():,.2f}." and s.warnings == []
     assert "not in the result" in h.llm.calls[-1].user_input
 
 
@@ -117,7 +127,7 @@ def test_unsafe_sql_from_the_model_never_reaches_the_database(harness, service, 
 
 def test_a_trailing_semicolon_from_the_model_is_tidied_not_refused(harness):
     h = harness()
-    h.llm.say(SQLDraft, SQLDraft(sql=NET + ";")).say(Narration, says_revenue(63748004.83))
+    h.llm.say(SQLDraft, SQLDraft(sql=NET + ";")).say(Narration, says_revenue(total_net_revenue()))
     assert h.ask("net revenue").status == "answered"
 
 
@@ -173,7 +183,7 @@ def test_a_query_that_runs_too_long_is_cut_off(harness):
 def test_an_expensive_plan_gets_one_chance_to_be_rewritten_then_a_warning(harness):
     h = harness(max_plan_cost=1)  # everything is "too expensive"
     h.llm.say(SQLDraft, SQLDraft(sql=NET), SQLDraft(sql=NET + " WHERE 1 = 1")).say(
-        Narration, says_revenue(63748004.83))
+        Narration, says_revenue(total_net_revenue()))
     s = h.ask("net revenue")
     assert h.llm.count(SQLDraft) == 2  # asked exactly once more, not in a loop
     assert "estimated cost" in h.llm.calls_of(SQLDraft)[1].user_input  # the model was told why
@@ -200,14 +210,14 @@ def test_a_correct_relative_period_is_not_mistaken_for_a_full_scan(harness):
 
 def test_an_all_time_question_is_left_alone(harness):
     h = harness()
-    h.llm.say(SQLDraft, SQLDraft(sql=NET)).say(Narration, says_revenue(63748004.83))
+    h.llm.say(SQLDraft, SQLDraft(sql=NET)).say(Narration, says_revenue(total_net_revenue()))
     h.ask("What is our total net revenue?")
     assert h.llm.count(SQLDraft) == 1
 
 
 def test_a_cheap_query_is_not_questioned(harness):
     h = harness()
-    h.llm.say(SQLDraft, SQLDraft(sql=NET)).say(Narration, says_revenue(63748004.83))
+    h.llm.say(SQLDraft, SQLDraft(sql=NET)).say(Narration, says_revenue(total_net_revenue()))
     s = h.ask("net revenue")
     assert h.llm.count(SQLDraft) == 1 and s.warnings == []
 
@@ -240,7 +250,7 @@ def test_a_run_with_no_scope_is_refused_outright(harness):
 def test_a_failing_data_quality_check_is_shown_beside_the_answer(harness):
     h = harness()
     h.rt.health_check = lambda: ["data quality warning: freshness check failed"]
-    h.llm.say(SQLDraft, SQLDraft(sql=NET)).say(Narration, says_revenue(63748004.83))
+    h.llm.say(SQLDraft, SQLDraft(sql=NET)).say(Narration, says_revenue(total_net_revenue()))
     s = h.ask("net revenue")
     assert s.status == "answered" and s.warnings == ["data quality warning: freshness check failed"]
 

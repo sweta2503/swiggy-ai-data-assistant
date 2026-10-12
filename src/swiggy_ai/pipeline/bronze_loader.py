@@ -24,7 +24,7 @@ import psycopg
 from swiggy_ai.db import connect
 from swiggy_ai.logging_setup import setup_logging
 from swiggy_ai.pipeline import schema_drift as drift
-from swiggy_ai.pipeline.runner import run_sql_dir, run_sql_file
+from swiggy_ai.pipeline.runner import run_sql_dir, run_sql_file, should_analyze
 
 log = logging.getLogger("bronze")
 META_COLUMNS = ("_source_file", "_file_hash", "_ingested_at", "_batch_id", "_row_number")
@@ -168,11 +168,12 @@ def load_file(conn: psycopg.Connection, spec: FileSpec, path: Path, rel_name: st
 
 
 def load_directory(conn: psycopg.Connection, data_dir: Path,
-                   aliases: drift.Aliases | None = None) -> LoadReport:
+                   aliases: drift.Aliases | None = None, analyze: bool | None = None) -> LoadReport:
     """Load every file under data_dir that the ledger has not seen. Safe to call repeatedly.
     Files whose columns changed are quarantined unless `aliases` (default: column_aliases.yml)
     approves the change."""
     report = LoadReport()
+    analyze = should_analyze(conn, analyze)
     aliases = aliases if aliases is not None else drift.load_aliases()
     drift.seed_expected(conn, SPECS)
     known = {h for (h,) in conn.execute("SELECT file_hash FROM bronze.load_ledger")}
@@ -220,6 +221,8 @@ def load_directory(conn: psycopg.Connection, data_dir: Path,
                 drift.release(conn, digest, how)
                 parked.discard(digest)
                 report.files_released += 1
+    for table in report.rows_loaded if analyze else ():  # a fresh bulk load has no statistics yet
+        conn.execute(f"ANALYZE bronze.{table}")
     return report
 
 

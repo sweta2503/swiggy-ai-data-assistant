@@ -1,6 +1,6 @@
 # Gold star schema
 
-Facts are events. Dimensions describe who, what, where and when. Every fact row points at one
+Key columns are shown, not every column (a test checks each one exists in the database). Facts are events. Dimensions describe who, what, where and when. Every fact row points at one
 dimension row through a surrogate key (`*_sk`). `-1` is the "Unknown" member, used when a fact
 cannot find its dimension row, so nothing is dropped.
 

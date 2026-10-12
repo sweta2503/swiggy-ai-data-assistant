@@ -15,7 +15,7 @@ import psycopg
 
 from swiggy_ai.db import connect
 from swiggy_ai.logging_setup import setup_logging
-from swiggy_ai.pipeline.runner import SQL_ROOT, run_sql_dir
+from swiggy_ai.pipeline.runner import SQL_ROOT, analyze_schema, run_sql_dir, should_analyze
 
 log = logging.getLogger("gold")
 TABLES = [
@@ -68,9 +68,10 @@ def reset_gold(conn: psycopg.Connection) -> None:
                  " gold.festival_calendar RESTART IDENTITY")
 
 
-def run_gold(conn: psycopg.Connection, full: bool = False,
-             data_dir: Path | None = None) -> GoldReport:
+def run_gold(conn: psycopg.Connection, full: bool = False, data_dir: Path | None = None,
+             analyze: bool | None = None) -> GoldReport:
     report = GoldReport()
+    analyze = should_analyze(conn, analyze)  # decided before our own transaction begins
     with conn.transaction():
         conn.execute((SQL_ROOT / "gold" / "00_tables.sql").read_text())
         if full:
@@ -80,6 +81,8 @@ def run_gold(conn: psycopg.Connection, full: bool = False,
         for path in sorted((SQL_ROOT / "gold").glob("*.sql")):
             if path.name != "00_tables.sql":
                 conn.execute(path.read_text())
+                if analyze:  # the next file joins to what this one just loaded
+                    analyze_schema(conn, "gold")
         apply_security_objects(conn)
         for t in TABLES:
             report.rows[t] = _count(conn, t)

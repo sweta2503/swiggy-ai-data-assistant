@@ -5,7 +5,7 @@
 payments, refunds, ratings, 25,000 customers (daily snapshots), 1,800 restaurants,
 3,500 delivery partners and ~72,000 menu items. Same seed gives byte-identical files.
 
-**Why generated data beats toy CSVs:** a clean CSV teaches nothing. Real sources arrive
+**Why it matters at work (and why generated data beats toy CSVs):** a clean CSV teaches nothing. Real sources arrive
 duplicated, late, in different time zones and with five spellings of "delivered". We inject
 nine defects on purpose and record every one in `data/raw/_defects.json`, so later chapters
 can prove the pipeline fixed each of them.
