@@ -32,7 +32,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@swiggy.local
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin_dev_pw}
       PGADMIN_CONFIG_SERVER_MODE: "False"  # one local user: no sign-in screen
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"

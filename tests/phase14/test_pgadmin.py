@@ -88,3 +88,13 @@ def test_every_sql_block_in_the_tour_runs_and_only_the_intended_ones_are_refused
 
 def test_the_tour_makes_no_claims_about_this_machines_data_volumes():
     assert not re.search(r"\b\d{2,3},\d{3}\b", TOUR), "row counts change; leave them out"
+
+
+def test_the_pgadmin_login_email_is_not_a_reserved_name():
+    """pgAdmin refuses to start if the email's domain is special-use ('admin@swiggy.local' did)."""
+    email = COMPOSE["services"]["pgadmin"]["environment"]["PGADMIN_DEFAULT_EMAIL"]
+    assert re.fullmatch(r"[\w.+-]+@[\w-]+(\.[\w-]+)+", email), email
+    labels = email.split("@")[1].lower().split(".")
+    reserved = {"local", "localhost", "test", "invalid", "internal", "lan", "home", "corp",
+                "localdomain", "onion"}
+    assert labels[-1] not in reserved, f"{email}: the domain ends in a reserved name"
