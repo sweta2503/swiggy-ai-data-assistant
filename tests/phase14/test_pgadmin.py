@@ -98,3 +98,8 @@ def test_the_pgadmin_login_email_is_not_a_reserved_name():
     reserved = {"local", "localhost", "test", "invalid", "internal", "lan", "home", "corp",
                 "localdomain", "onion"}
     assert labels[-1] not in reserved, f"{email}: the domain ends in a reserved name"
+
+
+def test_the_readme_names_the_same_pgadmin_image_that_compose_pins():
+    image = COMPOSE["services"]["pgadmin"]["image"]
+    assert image in (ROOT / "README.md").read_text(), f"README should mention {image}"

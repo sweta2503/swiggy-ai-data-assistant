@@ -191,6 +191,7 @@ Run `make` to list them. `test-NN` below stands for `test-00` to `test-14`.
 - **Cost shows "not computed (prices not set)":** set `PRICE_INPUT_PER_1M` and `PRICE_OUTPUT_PER_1M`
   from your provider's pricing page. Prices are never guessed.
 - **Port 8000 or 8501 is taken:** stop the other program, or run uvicorn / streamlit with another port.
+- **pgAdmin says a newer version is available:** harmless. The image is pinned (`dpage/pgadmin4:9.9`) so the setup stays reproducible; close the banner, or raise the version in `docker-compose.yml` if you want the latest.
 
 ## About the data
 
