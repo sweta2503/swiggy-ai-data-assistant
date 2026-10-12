@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 test-09 test-10 test-11 test-12 test-13 test-14 report api ui ask daily scheduler cache-clear drift-demo refresh-catalog eval eval-check eval-gate eval-compare ci
+.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 test-09 test-10 test-11 test-12 test-13 test-14 report pgadmin pgadmin-down api ui ask daily scheduler cache-clear drift-demo refresh-catalog eval eval-check eval-gate eval-compare ci
 PY := .venv/bin/python
 export PYTHONPATH := src:.
 
@@ -22,6 +22,13 @@ down:  ## Stop Postgres (data is kept)
 reset-db:  ## DANGER: delete the database volume and start fresh
 	docker compose down -v
 	docker compose up -d --wait
+
+pgadmin:  ## Start pgAdmin (a web UI for the database) at http://localhost:5050 (first run downloads its image)
+	docker compose --profile tools up -d --wait pgadmin
+	@echo "pgAdmin: http://localhost:5050   passwords: see docs/db_tour.md"
+
+pgadmin-down:  ## Stop pgAdmin (the database keeps running)
+	docker compose --profile tools stop pgadmin
 
 psql:  ## Open a psql shell as admin
 	docker compose exec postgres psql -U $${POSTGRES_ADMIN_USER:-swiggy_admin} -d swiggy

@@ -1,4 +1,5 @@
 # One command to start the warehouse: docker compose up -d
+# Optional pgAdmin (a web UI for the database, for showing it on screen): make pgadmin
 services:
   postgres:
     image: postgres:16
@@ -22,5 +23,25 @@ services:
       timeout: 3s
       retries: 20
 
+  # Optional: not started by `make up`. `make pgadmin` starts it at http://localhost:5050.
+  pgadmin:
+    image: dpage/pgadmin4:9.9
+    profiles: ["tools"]
+    container_name: swiggy_pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@swiggy.local
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin_dev_pw}
+      PGADMIN_CONFIG_SERVER_MODE: "False"  # one local user: no sign-in screen
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    ports:
+      - "127.0.0.1:5050:80"  # this machine only
+    volumes:
+      - swiggy_pgadmin_data:/var/lib/pgadmin
+      - ./scripts/pgadmin_servers.json:/pgadmin4/servers.json:ro
+
 volumes:
   swiggy_pgdata:
+  swiggy_pgadmin_data:

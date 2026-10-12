@@ -1,0 +1,22 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Swiggy warehouse (admin: sees everything)",
+      "Group": "Swiggy AI Data Assistant",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "swiggy",
+      "Username": "swiggy_admin",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "Swiggy as the AI sees it (assistant_ro)",
+      "Group": "Swiggy AI Data Assistant",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "swiggy",
+      "Username": "assistant_ro",
+      "SSLMode": "prefer"
+    }
+  }
+}

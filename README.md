@@ -84,6 +84,7 @@ Each of these has been run for real. The first three are the ones worth filming.
 | City scoping | ask *How many orders did we get last week?* as `admin`, then `WHO=bengaluru_manager` | different numbers, because the database only returns the manager's city |
 | A wrong table is caught | `make dq-demo` | a copy of gold gets a day loaded twice; the checks catch it, real gold is untouched |
 | A source changes its schema | `make drift-demo` | quarantined, alerted, then loaded after the owner approves the rename |
+| The database on screen | `make pgadmin`, then follow [`docs/db_tour.md`](docs/db_tour.md) | the layers from raw files to star schema, and what the AI is (not) allowed to see, in pgAdmin |
 | Trying to break out | `make security-demo` | each attempt to read raw tables, write, or widen the scope fails |
 | The audit trail | `make report` | success, heal and refusal rates, guard rejections, tokens and cost |
 | Measuring it | `make eval` | scores 30 golden questions (calls OpenAI; costs a little) and writes a report |
@@ -99,6 +100,7 @@ Run `make` to list them. `test-NN` below stands for `test-00` to `test-14`.
 | `make up` / `make down` | start / stop Postgres (data is kept) |
 | `make reset-db` | **danger:** delete the database volume and start fresh |
 | `make psql` | open a `psql` shell as admin |
+| `make pgadmin` / `make pgadmin-down` | start / stop pgAdmin, a web UI for the database, at http://localhost:5050 (the first run downloads its image) |
 | `make check` | verify env, database, roles and one tiny model call |
 
 | Data pipeline | |
@@ -166,7 +168,7 @@ Run `make` to list them. `test-NN` below stands for `test-00` to `test-14`.
 | `semantic/` | `metrics.yml`, `catalog.yml`, `glossary.md` |
 | `eval/` | golden questions, reference SQL, judge, runner, report |
 | `orchestration/airflow/` | a teaching-only Airflow version of `make daily` |
-| `docs/` | architecture, ERD, interview cheatsheet |
+| `docs/` | architecture, ERD, database tour, interview cheatsheet |
 | `notes/` | one short note per phase |
 | `tests/` | `phase00` to `phase14` |
 
@@ -214,4 +216,4 @@ passes every check; that is what the evaluation is for. Rotate your OpenAI key w
 ## Where to read more
 
 [`docs/architecture.md`](docs/architecture.md) · [`docs/erd.md`](docs/erd.md) ·
-[`docs/interview_cheatsheet.md`](docs/interview_cheatsheet.md) · [`notes/`](notes/) (chapters 00 to 14)
+[`docs/db_tour.md`](docs/db_tour.md) · [`docs/interview_cheatsheet.md`](docs/interview_cheatsheet.md) · [`notes/`](notes/) (chapters 00 to 14)
