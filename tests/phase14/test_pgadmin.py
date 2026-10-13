@@ -103,3 +103,22 @@ def test_the_pgadmin_login_email_is_not_a_reserved_name():
 def test_the_readme_names_the_same_pgadmin_image_that_compose_pins():
     image = COMPOSE["services"]["pgadmin"]["image"]
     assert image in (ROOT / "README.md").read_text(), f"README should mention {image}"
+
+
+def test_the_connection_names_are_short_clear_and_the_same_in_the_guide():
+    servers = json.loads((ROOT / "scripts" / "pgadmin_servers.json").read_text())["Servers"]
+    names = [servers[k]["Name"] for k in sorted(servers)]
+    assert names == ["1. Admin (full access)", "2. AI assistant (limited)"]  # numbered to sort
+    assert all(len(n) <= 26 for n in names)  # the tree is narrow; longer names get cut off
+    assert {s["Group"] for s in servers.values()} == {"Swiggy"}
+    for name in names:
+        assert name in TOUR, f"the tour does not mention '{name}'"
+
+
+def test_pgadmin_reset_can_only_ever_remove_pgadmins_own_settings():
+    makefile = (ROOT / "Makefile").read_text()
+    recipe = makefile[makefile.index("pgadmin-reset:"):makefile.index("psql:")]
+    assert "down -v" not in recipe and "--volumes" not in recipe  # never the database volume
+    assert "label=com.docker.compose.volume=swiggy_pgadmin_data" in recipe
+    assert "pgdata" not in recipe
+    assert "pgadmin-reset" in TOUR and "make pgadmin-reset" in (ROOT / "README.md").read_text()

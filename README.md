@@ -101,6 +101,7 @@ Run `make` to list them. `test-NN` below stands for `test-00` to `test-14`.
 | `make reset-db` | **danger:** delete the database volume and start fresh |
 | `make psql` | open a `psql` shell as admin |
 | `make pgadmin` / `make pgadmin-down` | start / stop pgAdmin, a web UI for the database, at http://localhost:5050 (the first run downloads its image) |
+| `make pgadmin-reset` | forget pgAdmin's saved settings (saved passwords, renamed connections) |
 | `make check` | verify env, database, roles and one tiny model call |
 
 | Data pipeline | |

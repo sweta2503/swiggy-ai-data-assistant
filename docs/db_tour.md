@@ -11,25 +11,33 @@ make up          # the database (already running if you have used the project)
 make pgadmin     # first run downloads the pgAdmin image (about 450 MB), then opens http://localhost:5050
 ```
 
-There is no sign-in screen (it is a single-user local tool, bound to this machine only). Two servers
-are already registered, and each asks for its password once; tick **Save password**:
+There is no sign-in screen (it is a single-user local tool, bound to this machine only).
 
-| Server in the tree | Role | Password (the dev defaults in `.env`) |
-|---|---|---|
-| Swiggy warehouse (admin: sees everything) | `swiggy_admin` | `POSTGRES_ADMIN_PASSWORD`, `admin_dev_pw` |
-| Swiggy as the AI sees it (assistant_ro) | `assistant_ro` | `ASSISTANT_PASSWORD`, `assistant_dev_pw` |
+**How the tree is organised.** In pgAdmin the left-hand tree is: a folder (a "server group"), then
+**connections** (pgAdmin calls them "servers"), then the database, then its schemas. The folder is called
+**Swiggy** and holds two connections to the *same* database, `swiggy`. They differ only in who is logged in,
+and that is the point: the same data looks very different to each.
 
-Stop it with `make pgadmin-down`. The database keeps running.
+| Connection in the tree | Logs in as | What you see | Password (the dev defaults in `.env`) |
+|---|---|---|---|
+| **1. Admin (full access)** | `swiggy_admin` | every schema: bronze, silver, gold, analytics, ops | `POSTGRES_ADMIN_PASSWORD`, `admin_dev_pw` |
+| **2. AI assistant (limited)** | `assistant_ro` | only the 8 `analytics` views, and only the cities it declares | `ASSISTANT_PASSWORD`, `assistant_dev_pw` |
+
+Each asks for its password once; tick **Save password**. The schemas live one level further down:
+**Swiggy > 1. Admin (full access) > Databases > swiggy > Schemas**.
+
+Stop pgAdmin with `make pgadmin-down` (the database keeps running). If you rename anything in
+`scripts/pgadmin_servers.json`, run `make pgadmin-reset`: pgAdmin only reads that file the first time it starts.
 
 **Prefer to use an app you already have** (pgAdmin desktop, DBeaver, TablePlus)? Connect to host
 `localhost`, **port 5433** (not 5432), database `swiggy`, with the user and password above. For a quick
 terminal view use `make psql`.
 
-In pgAdmin: expand **Servers > Swiggy warehouse > Databases > swiggy > Schemas**. Right-click a table >
+In pgAdmin, right-click a table >
 **View/Edit Data** for rows, or open **Tools > Query Tool** and paste the queries below. Right-click a
 schema > **ERD For Schema** draws the star schema.
 
-## Part 1: the layers (use the admin server)
+## Part 1: the layers (use connection 1, Admin)
 
 **1. One schema per layer.** The `analytics` schema is the only one the AI may read.
 ```sql
@@ -78,7 +86,7 @@ ORDER BY customer_id, valid_from;
 SELECT severity, status, count(*) FROM ops.dq_latest_run GROUP BY 1, 2 ORDER BY 1, 2;
 ```
 
-## Part 2: what the AI is allowed to see (use the assistant_ro server)
+## Part 2: what the AI is allowed to see (use connection 2, AI assistant)
 
 **8. Only eight views.**
 ```sql
@@ -102,7 +110,7 @@ SELECT count(*) FROM analytics.orders;                  -- everything
 (The assistant sets this itself from the user's key. Declaring it by hand here is only possible
 because you hold the database login; the application and its guard allow a single `SELECT`.)
 
-## Part 3: the trail (admin server again)
+## Part 3: the trail (connection 1, Admin, again)
 
 **11. Every question is audited**, with personal data scrubbed and the repairs recorded.
 ```sql
