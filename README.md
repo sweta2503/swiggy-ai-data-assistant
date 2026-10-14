@@ -93,7 +93,7 @@ Each of these has been run for real. The first three are the ones worth filming.
 
 ## Make targets
 
-Run `make` to list them. `test-NN` below stands for `test-00` to `test-15`.
+Run `make` to list them. `test-NN` below stands for `test-00` to `test-14`.
 
 | Setup | |
 |---|---|
@@ -171,9 +171,9 @@ Run `make` to list them. `test-NN` below stands for `test-00` to `test-15`.
 | `semantic/` | `metrics.yml`, `catalog.yml`, `glossary.md` |
 | `eval/` | golden questions, reference SQL, judge, runner, report |
 | `orchestration/airflow/` | a teaching-only Airflow version of `make daily` |
-| `docs/` | architecture, ERD, database tour, interview cheatsheet, video script |
+| `docs/` | architecture, ERD, database tour, interview cheatsheet |
 | `notes/` | one short note per phase |
-| `tests/` | `phase00` to `phase15` |
+| `tests/` | `phase00` to `phase14` |
 
 ## Troubleshooting
 
@@ -221,3 +221,7 @@ passes every check; that is what the evaluation is for. Rotate your OpenAI key w
 
 [`docs/architecture.md`](docs/architecture.md) · [`docs/erd.md`](docs/erd.md) ·
 [`docs/db_tour.md`](docs/db_tour.md) · [`docs/interview_cheatsheet.md`](docs/interview_cheatsheet.md) · [`notes/`](notes/) (chapters 00 to 14)
+
+## License
+
+[MIT](LICENSE). This is an independent teaching project with generated data. It is not affiliated with Swiggy.

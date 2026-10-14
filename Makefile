@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 test-09 test-10 test-11 test-12 test-13 test-14 test-15 report pgadmin pgadmin-down pgadmin-reset api ui ask daily scheduler cache-clear drift-demo refresh-catalog eval eval-check eval-gate eval-compare ci
+.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 test-09 test-10 test-11 test-12 test-13 test-14 report pgadmin pgadmin-down pgadmin-reset api ui ask daily scheduler cache-clear drift-demo refresh-catalog eval eval-check eval-gate eval-compare ci
 PY := .venv/bin/python
 export PYTHONPATH := src:.
 
@@ -174,9 +174,6 @@ test-13:  ## Phase 13 tests
 
 test-14:  ## Phase 14 tests (the documentation)
 	$(PY) -m pytest tests/phase14 -q
-
-test-15:  ## Phase 15 tests (the video script, checked against the real files)
-	$(PY) -m pytest tests/phase15 -q
 
 test:  ## All tests
 	$(PY) -m pytest -q
