@@ -175,7 +175,7 @@ test-13:  ## Phase 13 tests
 test-14:  ## Phase 14 tests (the documentation)
 	$(PY) -m pytest tests/phase14 -q
 
-test-15:  ## Phase 15 tests (the video script and the files typed in it)
+test-15:  ## Phase 15 tests (the video script, checked against the real files)
 	$(PY) -m pytest tests/phase15 -q
 
 test:  ## All tests

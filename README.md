@@ -170,7 +170,6 @@ Run `make` to list them. `test-NN` below stands for `test-00` to `test-15`.
 | `eval/` | golden questions, reference SQL, judge, runner, report |
 | `orchestration/airflow/` | a teaching-only Airflow version of `make daily` |
 | `docs/` | architecture, ERD, database tour, interview cheatsheet, video script |
-| `workshop/` | the small, finished files typed live in the video (`docs/video_script.md`) |
 | `notes/` | one short note per phase |
 | `tests/` | `phase00` to `phase15` |
 
