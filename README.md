@@ -104,6 +104,8 @@ Run `make` to list them. `test-NN` below stands for `test-00` to `test-14`.
 | `make psql` | open a `psql` shell as admin |
 | `make pgadmin` / `make pgadmin-down` | start / stop pgAdmin, a web UI for the database, at http://localhost:5050 (the first run downloads its image) |
 | `make pgadmin-reset` | forget pgAdmin's saved settings (saved passwords, renamed connections) |
+| `make airflow` / `make airflow-down` | start / stop Airflow, which runs the daily pipeline as a DAG, at http://localhost:8080 (login `admin` / `admin`, this machine only; the first run builds an image of about 2 GB) |
+| `make airflow-reset` | forget Airflow's run history and settings (the warehouse is not touched) |
 | `make check` | verify env, database, roles and one tiny model call |
 
 | Data pipeline | |
@@ -170,7 +172,7 @@ Run `make` to list them. `test-NN` below stands for `test-00` to `test-14`.
 | `sql/` | all DDL, by layer: `bronze silver gold ops security` |
 | `semantic/` | `metrics.yml`, `catalog.yml`, `glossary.md` |
 | `eval/` | golden questions, reference SQL, judge, runner, report |
-| `orchestration/airflow/` | a teaching-only Airflow version of `make daily` |
+| `orchestration/airflow/` | the daily pipeline as an Airflow DAG, plus the image it runs in (optional: `make airflow`) |
 | `docs/` | architecture, ERD, database tour, interview cheatsheet |
 | `notes/` | one short note per phase |
 | `tests/` | `phase00` to `phase14` |

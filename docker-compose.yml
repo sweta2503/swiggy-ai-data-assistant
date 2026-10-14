@@ -1,5 +1,6 @@
 # One command to start the warehouse: docker compose up -d
 # Optional pgAdmin (a web UI for the database, for showing it on screen): make pgadmin
+# Optional Airflow (runs the daily DAG, with a web UI): make airflow
 services:
   postgres:
     image: postgres:16
@@ -42,6 +43,47 @@ services:
       - swiggy_pgadmin_data:/var/lib/pgadmin
       - ./scripts/pgadmin_servers.json:/pgadmin4/servers.json:ro
 
+  # Optional: not started by `make up`. `make airflow` starts it at http://localhost:8080.
+  # Runs orchestration/airflow/swiggy_daily_dag.py against the same database.
+  airflow:
+    build: ./orchestration/airflow
+    image: swiggy-airflow:2.10.5
+    profiles: ["airflow"]
+    container_name: swiggy_airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PY: /opt/swiggy-venv/bin/python  # the Makefile's Python; the DAG runs `make ...`
+      # Inside Docker the database is "postgres:5432", not "localhost:5433"
+      DATABASE_URL_ADMIN: postgresql://${POSTGRES_ADMIN_USER:-swiggy_admin}:${POSTGRES_ADMIN_PASSWORD:-admin_dev_pw}@postgres:5432/swiggy
+      DATABASE_URL_ETL: postgresql://etl_writer:${ETL_PASSWORD:-etl_dev_pw}@postgres:5432/swiggy
+      DATABASE_URL_ASSISTANT: postgresql://assistant_ro:${ASSISTANT_PASSWORD:-assistant_dev_pw}@postgres:5432/swiggy
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__WEBSERVER__SECRET_KEY: local-demo-only-not-a-secret
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-admin}  # local demo login: admin / admin
+    command:
+      - bash
+      - -c
+      - |
+        airflow db migrate
+        airflow users create --username admin --password "$$AIRFLOW_ADMIN_PASSWORD" --firstname Local --lastname Demo --role Admin --email admin@example.com || true
+        airflow scheduler &
+        exec airflow webserver
+    ports:
+      - "127.0.0.1:8080:8080"  # this machine only
+    volumes:
+      - swiggy_airflow_data:/opt/airflow
+      - ./orchestration/airflow:/opt/airflow/dags:ro
+      - .:/opt/swiggy-ai-data-assistant
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
 volumes:
   swiggy_pgdata:
   swiggy_pgadmin_data:
+  swiggy_airflow_data:

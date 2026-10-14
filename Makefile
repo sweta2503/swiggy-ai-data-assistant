@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
-.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 test-09 test-10 test-11 test-12 test-13 test-14 report pgadmin pgadmin-down pgadmin-reset api ui ask daily scheduler cache-clear drift-demo refresh-catalog eval eval-check eval-gate eval-compare ci
-PY := .venv/bin/python
+.PHONY: help venv env up down reset-db psql check data bronze bronze-reset bronze-rerun-test silver silver-full gold gold-full views security security-verify seed-users security-demo dq dq-demo catalog-check lint test test-00 test-01 test-02 test-03 test-04 test-05 test-06 test-07 test-08 test-09 test-10 test-11 test-12 test-13 test-14 report pgadmin pgadmin-down pgadmin-reset airflow airflow-down airflow-reset api ui ask daily scheduler cache-clear drift-demo refresh-catalog eval eval-check eval-gate eval-compare ci
+PY ?= .venv/bin/python
 export PYTHONPATH := src:.
 
 help:  ## Show this help
@@ -36,6 +36,16 @@ pgadmin-reset:  ## Forget pgAdmin's saved settings (passwords, renamed connectio
 
 psql:  ## Open a psql shell as admin
 	docker compose exec postgres psql -U $${POSTGRES_ADMIN_USER:-swiggy_admin} -d swiggy
+
+airflow:  ## Start Airflow (runs the daily DAG) at http://localhost:8080, login admin / admin (first run builds an image)
+	docker compose --profile airflow up -d --build --wait airflow
+
+airflow-down:  ## Stop Airflow (the database keeps running)
+	docker compose --profile airflow stop airflow
+
+airflow-reset:  ## Forget Airflow's run history and settings (the warehouse is not touched)
+	docker compose --profile airflow rm -sf airflow
+	docker volume rm $$(docker volume ls -q --filter label=com.docker.compose.volume=swiggy_airflow_data --filter label=com.docker.compose.project=$$(docker compose config --format json | $(PY) -c "import json,sys; print(json.load(sys.stdin)['name'])")) || true
 
 check:  ## Verify env, database, roles and one tiny LLM call
 	$(PY) -m swiggy_ai.check

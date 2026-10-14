@@ -1,8 +1,10 @@
-"""REFERENCE ONLY, FOR TEACHING. This file is not used by the project and is not run by `make ci`.
+"""The daily pipeline as an Apache Airflow DAG (optional: the project does not need Airflow).
 
-It shows how the same daily pipeline would look in Apache Airflow. Airflow is NOT installed in this
-project's environment and is not a dependency: to try the file you would need your own Airflow
-installation (2.4 or newer) with this repository mounted at PROJECT_DIR.
+Run it with `make airflow`: that builds a small Airflow image, mounts this repository into it and
+starts the Airflow web page at http://localhost:8080 (login admin / admin, local machine only).
+The DAG is paused until you switch it on or press "Trigger DAG". Airflow is NOT installed in the
+project's own Python environment and is not a dependency: `make daily` and the scheduler do the
+same job without it.
 
 What it demonstrates
   * the same tasks and dependencies as `make daily`:
@@ -10,6 +12,8 @@ What it demonstrates
   * "stop before publishing if a blocking check fails" is just a failed task: `make dq` exits
     non-zero when a blocking check fails, so refresh_catalog and publish never start
   * one run at a time (max_active_runs=1) and retries only for the load stages
+  * every task is the same command you run by hand, so a run here shows up in `ops.pipeline_runs`
+    just like `make daily` does
 
 The project's own scheduler (`python -m swiggy_ai.pipeline.scheduler`, or cron) needs none of this.
 """
@@ -34,7 +38,7 @@ with DAG(
     schedule="30 0 * * *",  # 06:00 India time is 00:30 UTC
     catchup=False,
     max_active_runs=1,
-    tags=["swiggy", "reference"],
+    tags=["swiggy", "daily"],
 ) as dag:
 
     def make(task_id: str, command: str, retries: int | None = None) -> BashOperator:
@@ -52,7 +56,10 @@ with DAG(
     refresh_catalog = make("refresh_catalog", "make refresh-catalog", retries=0)
     # Bumps the data version (retiring cached answers) only if the latest checks are healthy.
     publish = make(
-        "publish", "python -m swiggy_ai.pipeline.daily --publish-only --trigger airflow", retries=0
+        "publish",
+        "PYTHONPATH=src:. ${PY:-python}"
+        " -m swiggy_ai.pipeline.daily --publish-only --trigger airflow",
+        retries=0,
     )
 
     bronze >> silver >> gold >> dq >> refresh_catalog >> publish

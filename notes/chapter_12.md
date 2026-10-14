@@ -1,6 +1,6 @@
 # Chapter 12: Scheduling and caching
 
-**What we build:** `make daily`, a scheduler, a reference Airflow DAG, a data version, and an answer
+**What we build:** `make daily`, a scheduler, an optional Airflow DAG, a data version, and an answer
 cache.
 
 **Why it matters at work:** a pipeline that only runs when someone remembers is not a pipeline, and a
@@ -19,8 +19,10 @@ stay valid.
 
 **Scheduling.** `make scheduler` is a small APScheduler process (06:00 India time; `--cron`,
 `--run-now`; no overlap; a crash is logged, not fatal). Plain cron needs no code. The Airflow DAG in
-`orchestration/airflow/` has the same tasks and is marked reference-only; "stop before publishing" is
-just a failed `dq` task, and its last task runs `daily --publish-only`.
+`orchestration/airflow/` has the same tasks and really runs: `make airflow` starts Airflow at
+http://localhost:8080 (login admin / admin) with this repository mounted; "stop before publishing" is just a
+failed `dq` task, and its last task runs `daily --publish-only`, so an Airflow run appears in
+`ops.pipeline_runs` with trigger `airflow`. Airflow lives only in its own image, never in `requirements.txt`.
 
 **The answer cache** (`ops.answer_cache`). Key = normalised question + data version + hash of the city
 scope. A published run that changed something bumps the version and deletes older answers. Hits are

@@ -100,6 +100,6 @@ breaks answering.
 **12. What would you change for production, and what does it not do?**
 Add per-key rate limiting, HTTPS and real sign-in (the demo page has none); give each city scope its
 own database login; replace the in-memory conversation memory with a persistent store; move
-scheduling to the platform's orchestrator (a reference Airflow DAG is included); and grow the
+scheduling to the platform's orchestrator (an Airflow DAG is included, and it runs); and grow the
 evaluation set whenever a real failure is found. It also cannot guarantee that a small model never
 writes a wrong query that passes every check, which is why the evaluation exists.
