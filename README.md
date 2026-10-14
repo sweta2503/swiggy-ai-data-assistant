@@ -51,6 +51,8 @@ are in [`docs/architecture.md`](docs/architecture.md); the star schema is in
 - Docker Desktop (running)
 - Python 3.11 or newer (developed on 3.11, and the quick start was also run on 3.14)
 - An OpenAI API key. Set a usage limit in the OpenAI dashboard first, and use small, cheap models.
+- Git, a terminal and `make`, and a code editor (VS Code is fine). Built and tested on macOS; on Windows, use WSL (not tested).
+- Basic SQL (`SELECT`, `WHERE`, `GROUP BY`, `JOIN`) and a little Python. No cloud account and no data engineering experience needed.
 
 ## Quick start
 
