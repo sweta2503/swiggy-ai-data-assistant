@@ -91,7 +91,7 @@ Each of these has been run for real. The first three are the ones worth filming.
 
 ## Make targets
 
-Run `make` to list them. `test-NN` below stands for `test-00` to `test-14`.
+Run `make` to list them. `test-NN` below stands for `test-00` to `test-15`.
 
 | Setup | |
 |---|---|
@@ -169,9 +169,10 @@ Run `make` to list them. `test-NN` below stands for `test-00` to `test-14`.
 | `semantic/` | `metrics.yml`, `catalog.yml`, `glossary.md` |
 | `eval/` | golden questions, reference SQL, judge, runner, report |
 | `orchestration/airflow/` | a teaching-only Airflow version of `make daily` |
-| `docs/` | architecture, ERD, database tour, interview cheatsheet |
+| `docs/` | architecture, ERD, database tour, interview cheatsheet, video script |
+| `workshop/` | the small, finished files typed live in the video (`docs/video_script.md`) |
 | `notes/` | one short note per phase |
-| `tests/` | `phase00` to `phase14` |
+| `tests/` | `phase00` to `phase15` |
 
 ## Troubleshooting
 

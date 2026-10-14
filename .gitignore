@@ -11,3 +11,4 @@ data/drift/*
 eval/results/
 *.egg-info/
 .DS_Store
+typed/
