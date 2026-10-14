@@ -26,4 +26,5 @@ if __name__ == "__main__":
     class Route(BaseModel):
         kind: str
 
-    print(ask("Say 'data' or 'other'.", "How many orders last week?", Route, tier="low"))
+    rule = "Reply 'data' if the question needs numbers from a database, otherwise 'other'."
+    print(ask(rule, "How many orders did we get last week?", Route, tier="low"))
